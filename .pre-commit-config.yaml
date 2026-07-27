@@ -1,0 +1,35 @@
+# Pre-commit is a fast subset of `just verify`. It is not a substitute for it —
+# type checking and the test suite still run in CI and before a phase is called
+# done.
+default_language_version:
+  python: python3.12
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=5120]  # samples/ budget is 5 MB total (§3)
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff-format
+      - id: ruff
+        args: [--fix]
+
+  - repo: local
+    hooks:
+      - id: import-linter
+        name: import contracts (§3)
+        entry: uv run lint-imports
+        language: system
+        pass_filenames: false
+        types: [python]

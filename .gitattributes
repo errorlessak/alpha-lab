@@ -1,0 +1,19 @@
+# LF in the repository and in the working tree, on every platform.
+#
+# This is a determinism concern, not a style one: `git_revision()` marks a run
+# `-dirty` from `git status --porcelain`, and a checkout that rewrites every
+# line ending would mark every run dirty on Windows. It also stops
+# pre-commit's `mixed-line-ending --fix=lf` fighting `core.autocrlf`.
+* text=auto eol=lf
+
+# Binary fixtures and lake files — never touched.
+*.parquet binary
+*.duckdb binary
+*.png binary
+*.jpg binary
+*.pdf binary
+*.pt binary
+
+# Generated; collapse in review diffs.
+uv.lock linguist-generated=true
+web/package-lock.json linguist-generated=true

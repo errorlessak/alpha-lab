@@ -1,0 +1,23 @@
+[project]
+name = "alphacore"
+version = "0.1.0"
+description = "Pure research library: data, features, labels, CV, models, backtest, evaluation."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "loguru>=0.7.2",
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "pydantic>=2.8",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# Sequence models (Phase 13). `import alphacore` must work without this.
+dl = ["torch>=2.4"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/alphacore"]

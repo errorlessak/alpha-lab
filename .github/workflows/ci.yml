@@ -1,0 +1,64 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Determinism (§4, I8). CPython reads this at startup, so it has to be in the
+  # job environment rather than set from inside a step.
+  PYTHONHASHSEED: "0"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # git_revision() records a short SHA in every run manifest.
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Pin Python
+        run: uv python install 3.12
+
+      - name: Sync the locked environment
+        run: uv sync --all-packages --locked
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Import contracts
+        run: uv run lint-imports
+
+      - name: Types
+        run: uv run mypy packages/alphacore/src packages/alphaservice/src
+
+      - name: Tests
+        run: uv run pytest --cov=alphacore --cov-fail-under=85
+
+      - name: Leakage suite
+        run: uv run pytest tests/leakage -x
+
+      - name: CLI is installed
+        run: uv run alpha --help
+
+  # Wired up at the phases that make them meaningful (ADR 0009):
+  #   smoke  — Phase 10 (`just smoke`)
+  #   web    — Phase 12 (typecheck, build, Playwright)
+  #   docker — Phase 14 (`docker compose up` on the sample dataset)

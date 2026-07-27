@@ -1,0 +1,23 @@
+[project]
+name = "alphaservice"
+version = "0.1.0"
+description = "FastAPI service and Typer CLI over the immutable alphacore artifact store."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alphacore",
+    "rich>=13.7",
+    "typer>=0.12",
+]
+
+[project.scripts]
+alpha = "alphaservice.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/alphaservice"]
+
+[tool.uv.sources]
+alphacore = { workspace = true }
