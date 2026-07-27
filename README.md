@@ -8,15 +8,18 @@ It deliberately refuses to trade. There is no broker connectivity, no order
 routing, and no recommendation of any kind. The system reports evidence; the
 judgement stays with the researcher.
 
-> **Status: Phase 5 of 14.** In place: determinism and hashing, run manifests,
+> **Status: Phase 7 of 14.** In place: determinism and hashing, run manifests,
 > the immutable artifact store, the config schema, point-in-time ingestion, the
 > parquet lake, the duckdb catalog, quality reporting, 27 in-house causal
 > feature primitives with a leak-proof registry, four labelling methods with
 > uniqueness and time-decay sample weights, purged cross-validation
-> (walk-forward, purged k-fold, CPCV), and the out-of-fold leaderboard with its
-> mandatory baselines. The backtester and the honesty metrics arrive phase by
-> phase; see [PROGRESS.md](PROGRESS.md). This README gets its screenshots and
-> its honest headline result at Phase 14 (§20).
+> (walk-forward, purged k-fold, CPCV), the out-of-fold leaderboard with its
+> mandatory baselines, signal generation with hysteresis and three sizing
+> methods, and the event-driven backtester with its auditable cost model.
+> **All seven leakage tests from §12.3 now exist and pass.** The honesty
+> metrics, the API and the web app arrive phase by phase; see
+> [PROGRESS.md](PROGRESS.md). This README gets its screenshots and its honest
+> headline result at Phase 14 (§20).
 
 ## Why it exists
 
@@ -39,8 +42,15 @@ cannot be fitted without an explicit training mask. Correlation pruning cannot
 run on the full sample. Every cross-validation fold is purged and embargoed
 before it is handed back, and `train_test_split` and plain `KFold` fail the
 build if they appear in library code. Every leaderboard carries a
-shuffled-label row, so there is always a scale on the axis. Each raises rather
-than warns.
+shuffled-label row, so there is always a scale on the axis. The backtester
+cannot execute on the bar that produced its signal — orders are queued against
+a strictly later bar, and `execution_lag_bars: 0` raises. Each of these raises
+rather than warns.
+
+Two tests guard the last one, and they only mean anything together: a perfect
+close-of-bar predictor must earn nothing, and a model handed the actual forward
+return must earn an absurd amount. Without the second, an engine that simply
+never made money would pass the first.
 
 The most valuable output this repository can produce is a run where the model
 does **not** find an edge, reported honestly, with the diagnostics that prove

@@ -11,8 +11,8 @@ done when its exit criteria pass, not when the code looks finished.
 | 3 | Labels and weights | ✅ Done — 2026-07-27 |
 | 4 | Cross-validation | ✅ Done — 2026-07-27 |
 | 5 | Models and leaderboard | ✅ Done — 2026-07-27 |
-| 6 | Signals and risk | ⬜ Not started |
-| 7 | Backtest engine | ⬜ Not started |
+| 6 | Signals and risk | ✅ Done — 2026-07-27 |
+| 7 | Backtest engine | ✅ Done — 2026-07-27 |
 | 8 | Metrics and tearsheet | ⬜ Not started |
 | 9 | Explainability | ⬜ Not started |
 | 10 | Pipelines and CLI | ⬜ Not started |
@@ -587,3 +587,118 @@ watched fail before a line of implementation existed.
 - Mean Decrease Accuracy and clustered feature importance (§7.3) — Phase 9
 - Reliability diagrams and the calibration curve artifact (§10.2) — Phase 8
 - Ensembles (`models/ensemble.py`) and sequence models — Phases 5+/13
+
+---
+
+## Phase 6 — Signals and risk ✅
+
+**Completed:** 2026-07-27
+
+### Built
+
+- **`signal/thresholds.py`** — thresholds with a dead zone, and hysteresis as
+  an asymmetric hold band: conviction to enter, patience to leave.
+- **`signal/sizing.py`** — fixed fraction, volatility targeting, capped Kelly.
+  Every path ends at the same clip, with no configuration that bypasses it.
+- **`risk/stops.py`** — ATR-scaled stops and targets, ratcheting trailing
+  stops, and the same-bar tie-break the labeller uses.
+- **`risk/limits.py`** — drawdown kill switch, daily loss, concurrency.
+
+### Exit criteria
+
+| Criterion | Result |
+|---|---|
+| Sizing never exceeds `max_leverage` | ✅ property test over three methods × five seeds, every knob set above the cap and volatility running to near zero, plus a test that the cap actually binds |
+| Hysteresis strictly reduces flips vs plain thresholding | ✅ over 20 random walks, plus a monotonicity test across four hysteresis levels |
+
+### Judgement calls
+
+1. **"Strictly reduces flips" is stated over paths, not per path.** A path that
+   crosses a threshold once has one flip either way, so per-path strictness is
+   false for a correct implementation. The suite asserts hysteresis *never
+   increases* flips on any of 20 paths, and *strictly reduces* them in
+   aggregate. The first version failed on seed 7 and the test was wrong, not
+   the code.
+2. **The kill switch latches.** Recovering does not resume trading. A drawdown
+   limit that resets when equity recovers is not a limit, it is a description.
+3. **Breaches accumulate rather than short-circuit.** A run that breached three
+   limits at once is a different situation from one that breached one.
+4. **Kelly mirrors the probability for a short.** A short wins when the
+   negative class realises; sizing on `p` regardless would systematically
+   oversize every short.
+
+---
+
+## Phase 7 — Backtest engine ✅
+
+**Completed:** 2026-07-27
+**`CURRENT_PHASE`:** `7` — **all seven** §12.3 leakage tests now exist and pass,
+with nothing skipped
+
+### Built
+
+- **`backtest/costs.py`** — commission, half-spread, linear and square-root
+  impact, minimum commission, borrow on short notional, financing on leveraged
+  long notional, and the participation cap.
+- **`backtest/portfolio.py`** — cash and position, with `assert_reconciles` for
+  `--strict`.
+- **`backtest/ledger.py`** — the append-only event log. Equity, drawdown and
+  the trade blotter are all *views* over it, so they cannot disagree.
+- **`backtest/engine.py`** — the event loop in §12.1's order.
+- **`backtest/reference.py`** — the deliberately dumb vectorised oracle.
+- **`cost_sensitivity`** — the sweep whose curve shape says whether a strategy
+  survives its own execution.
+
+### Exit criteria
+
+| Criterion | Result |
+|---|---|
+| `test_no_same_bar_execution` | ✅ a perfect close-of-bar predictor earns \|Sharpe\| < 1, at lags 1, 2 and 5 |
+| `test_perfect_foresight_sanity` | ✅ the forward return produces Sharpe > 10, proving the canary above can detect anything |
+| Engine matches `reference.py` to `1e-8` frictionless | ✅ over a 300-bar random walk with a random signal |
+| Cash + position reconciles every bar under `--strict` | ✅ and `test_strict_mode_catches_an_accounting_break` proves the assertion can fail |
+
+### Judgement calls
+
+1. **Orders are keyed to the bar they may execute on.** Rather than trusting
+   the documented step order, the loop reads bar `t`'s signal only *after* it
+   has already executed and marked that bar, and places the resulting order in
+   a queue keyed to a strictly later bar. Same-bar execution is
+   unrepresentable, and `execution_lag_bars=0` raises rather than being
+   silently clamped.
+2. **The reference engine compounds open-to-open, not close-to-close.** The
+   engine rebalances at each bar's open, so the naive oracle has to match that
+   convention. Getting it wrong makes the two disagree by exactly one bar's
+   return — which reads as a subtle bug and is actually a specification
+   difference. The reference's docstring says so.
+3. **`bars_held` is measured from recorded bar indices, never a timestamp
+   difference.** On a session calendar a three-day gap can be one bar or three,
+   and guessing would put a wrong holding period in the blotter.
+4. **A zero-quantity fill does not attract the minimum commission.** Charging
+   for a trade that did not happen would make a flat strategy lose money.
+
+### What surprised us
+
+- **The engine silently skipped stops for positions opened before the ATR
+  warm-up.** Levels were only attached when `atr[i]` was finite, so a position
+  entered on bar 1 with a 14-bar ATR ran unstopped for the rest of the sample —
+  no error, no warning, just no protection. Found by a stop test that failed
+  for the wrong reason. Levels now attach as soon as an ATR exists, and any
+  bars held before that raise an `UNSTOPPED_WARMUP` flag on the result rather
+  than passing quietly.
+- **The `reason` variable was doing two jobs.** mypy caught an `ExitReason`
+  being assigned into a slot typed `str` — the exit reason and the order reason
+  shared a name in the event loop. Harmless today, and exactly the kind of
+  thing that becomes a wrong `exit_reason` in a blotter later.
+- **The reference cross-check needed a companion test.** Agreement to `1e-8`
+  proves little unless disagreement is also demonstrable, so
+  `test_the_reference_engine_disagrees_once_costs_are_charged` shows the check
+  has teeth and is only valid frictionless.
+
+### Deferred to later phases
+
+- `fill_price: next_vwap` — the config accepts it; the engine fills at the open
+  regardless. Phase 8, alongside the intraday VWAP series it needs.
+- Multi-instrument portfolios — the engine is single-symbol, which is what
+  every config so far uses
+- Wiring signal, sizing and backtest into a run directory — Phase 10

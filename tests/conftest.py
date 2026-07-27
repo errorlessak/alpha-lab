@@ -19,7 +19,7 @@ from alphacore.runtime import ArtifactStore, configure_logging
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-CURRENT_PHASE = 5
+CURRENT_PHASE = 7
 """Highest fully completed phase from ARCHITECTURE.md §15. Bump only when that
 phase's exit criteria pass."""
 
