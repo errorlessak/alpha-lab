@@ -8,16 +8,18 @@ It deliberately refuses to trade. There is no broker connectivity, no order
 routing, and no recommendation of any kind. The system reports evidence; the
 judgement stays with the researcher.
 
-> **Status: Phase 7 of 14.** In place: determinism and hashing, run manifests,
+> **Status: Phase 9 of 14.** In place: determinism and hashing, run manifests,
 > the immutable artifact store, the config schema, point-in-time ingestion, the
 > parquet lake, the duckdb catalog, quality reporting, 27 in-house causal
 > feature primitives with a leak-proof registry, four labelling methods with
 > uniqueness and time-decay sample weights, purged cross-validation
 > (walk-forward, purged k-fold, CPCV), the out-of-fold leaderboard with its
 > mandatory baselines, signal generation with hysteresis and three sizing
-> methods, and the event-driven backtester with its auditable cost model.
-> **All seven leakage tests from §12.3 now exist and pass.** The honesty
-> metrics, the API and the web app arrive phase by phase; see
+> methods, the event-driven backtester with its auditable cost model, the full
+> metric set including PSR, DSR, minimum track record length and PBO, the
+> canonical tearsheet with its generated research note, and TreeSHAP
+> explanations. **All seven leakage tests from §12.3 now exist and pass.** The
+> CLI, the API and the web app arrive phase by phase; see
 > [PROGRESS.md](PROGRESS.md). This README gets its screenshots and its honest
 > headline result at Phase 14 (§20).
 

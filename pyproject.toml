@@ -81,6 +81,10 @@ max-args = 8
 # every keyword call into a Pipeline and read as a different API to anyone who
 # has used scikit-learn, so the convention wins over the naming rule here.
 "packages/alphacore/src/alphacore/models/*" = ["N803", "N806"]
+# These docstrings transcribe the formulas from §11.2 verbatim — Φ, γ₃, γ₄ and
+# a real MINUS SIGN. Substituting ASCII lookalikes would make them harder to
+# check against the specification, which is the only reason they are there.
+"packages/alphacore/src/alphacore/eval/*" = ["RUF002"]
 
 [tool.ruff.format]
 docstring-code-format = true

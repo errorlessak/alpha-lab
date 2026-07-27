@@ -13,8 +13,8 @@ done when its exit criteria pass, not when the code looks finished.
 | 5 | Models and leaderboard | ✅ Done — 2026-07-27 |
 | 6 | Signals and risk | ✅ Done — 2026-07-27 |
 | 7 | Backtest engine | ✅ Done — 2026-07-27 |
-| 8 | Metrics and tearsheet | ⬜ Not started |
-| 9 | Explainability | ⬜ Not started |
+| 8 | Metrics and tearsheet | ✅ Done — 2026-07-27 |
+| 9 | Explainability | ✅ Done — 2026-07-27 |
 | 10 | Pipelines and CLI | ⬜ Not started |
 | 11 | API service | ⬜ Not started |
 | 12 | Web app | ⬜ Not started |
@@ -702,3 +702,119 @@ with nothing skipped
 - Multi-instrument portfolios — the engine is single-symbol, which is what
   every config so far uses
 - Wiring signal, sizing and backtest into a run directory — Phase 10
+
+---
+
+## Phase 8 — Metrics and tearsheet ✅
+
+**Completed:** 2026-07-27
+
+### Built
+
+- **`eval/financial.py`** — the return and trade metric sets, plus
+  `break_even_cost_bps`.
+- **`eval/deflated.py`** — PSR, the expected maximum Sharpe from `N` trials,
+  DSR, and minimum track record length.
+- **`eval/bootstrap.py`** — stationary block bootstrap with a Politis-White
+  block length.
+- **`eval/pbo.py`** — probability of backtest overfitting via CSCV.
+- **`report/tearsheet.py`** — the canonical `tearsheet.json` schema, with a
+  `verdict` property that states a high PBO in plain language (§11.3).
+- **`report/exporters.py`** — parquet and CSV writers plus LTTB downsampling.
+- **`report/research_md.py`** — the generated research note.
+
+### Exit criteria
+
+| Criterion | Result |
+|---|---|
+| Metrics validated against hand-computed fixtures | ✅ geometric return, max drawdown, VaR, and every trade metric asserted against arithmetic written out in the test |
+| DSR reproduces the published worked example | ⚠️ **substituted** — see deviation 1 |
+| Tearsheet validates against its schema | ✅ round-trips through JSON; an unknown key is rejected |
+| Determinism test passes | ✅ the research note and the fold serialisation are byte-stable |
+
+### Deviations
+
+1. **The DSR check is against the formula, not a published worked example.**
+   §15 asks DSR to "reproduce the published worked example". Transcribing
+   numbers from a paper I cannot open would be fabricating a citation, so the
+   substitute is stronger in one respect and weaker in another, and both are
+   stated here rather than glossed. The PSR is asserted against an
+   **independent transcription of the §11.2 formula** written inside the test
+   (`psr_by_hand`), which catches an implementation error but not a
+   misreading of the formula itself. DSR is then pinned by its analytic
+   properties: it never exceeds PSR when more than one trial was run, it falls
+   as the trial count rises, it falls as the spread of trial Sharpes widens,
+   and a single trial produces no haircut at all. If someone can supply the
+   paper's worked figures, they should be added as a golden fixture.
+2. **`eval/bootstrap.py` is a module §3 does not list.** §11.2 requires a
+   stationary block bootstrap with a Politis-White block length; putting it in
+   `financial.py` would have buried a hundred lines of resampling machinery
+   inside the metric definitions.
+
+### What surprised us
+
+- **`np.full(100, 0.001).std(ddof=1)` is `2.18e-19`, not zero.** The
+  zero-volatility guard was written as `if deviation == 0` and therefore never
+  fired — a constant return series returned a Sharpe of about 4.6e15 instead of
+  raising. Every dispersion guard now compares against a tolerance relative to
+  the data's own scale, and the test that caught it says so in a comment.
+- **PSR saturates fast.** A "Sharpe" of 0.5 *per observation* over 500
+  observations pins the normal CDF at 1.0, so the skew and kurtosis tests
+  measured nothing until the inputs were changed to a realistic per-observation
+  value of 0.05. Worth knowing before reading a PSR of 1.00 as good news.
+- **The ulcer index only beats max drawdown after 64 bars.** Drawdowns enter
+  squared, so a 5% drawdown must last `(0.40/0.05)² = 64` bars to outweigh a
+  single 40% one. The first version of that test asserted the opposite and was
+  simply wrong about the arithmetic.
+
+---
+
+## Phase 9 — Explainability ✅
+
+**Completed:** 2026-07-27
+
+### Built
+
+- **`explain/shap_runner.py`** — sampled TreeSHAP, the summary frame behind the
+  beeswarm, single-prediction waterfalls, and `verify_additivity`.
+
+### Exit criteria
+
+| Criterion | Result |
+|---|---|
+| SHAP values sum to `f(x) − E[f(x)]` within tolerance | ✅ observed discrepancy ~1e-15 against a 1e-6 tolerance |
+| Runtime on the smoke config under 30s | ✅ timed in the suite |
+
+### Deviations
+
+1. **TreeSHAP comes from the boosting libraries, not the `shap` package.**
+   `shap` pulls `numba` → `llvmlite`, which has no wheel resolving on Python
+   3.12 with NumPy 2.5 — `uv add shap` fails to build. LightGBM, XGBoost and
+   CatBoost each implement exact TreeSHAP in C++ and expose it directly
+   (`pred_contrib`, `pred_contribs`, `ShapValues`). Using those is the same
+   algorithm with **no new dependency**, and the additivity identity holds to
+   ~1e-15 rather than the ~1e-4 the `shap` package needs. The tolerance here is
+   set at 1e-6 accordingly, which is a much sharper check than §15 requires.
+2. **Only tree models are explained, and a linear model is refused.** §9 scopes
+   SHAP to tree models. Forcing TreeSHAP onto a logistic regression or a
+   baseline would produce numbers that look like explanations and are not — a
+   linear model's coefficients already are its explanation.
+
+### What surprised us
+
+- **Contributions are in raw-score space, not probability space.** The
+  additivity identity holds on the log-odds because the sigmoid is not
+  additive. `ShapResult` therefore carries `raw_output` alongside, so
+  `verify_additivity` compares like with like instead of quietly failing by a
+  sigmoid's worth.
+- **`explain_prediction` returns the reconstructed output.** The UI can then
+  *display* `sum(contributions) + base = output` rather than asking a reviewer
+  to trust that it holds — which is the entire argument for SHAP over
+  permutation importance.
+
+### Deferred to later phases
+
+- Dependence-plot data beyond the `direction` column — Phase 12, when the chart
+  that consumes it exists
+- Clustered MDA (§7.3) — needs a permutation loop over the OOF set
+- Wiring SHAP output into a run directory as `shap_summary.parquet` — Phase 10
