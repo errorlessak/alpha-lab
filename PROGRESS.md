@@ -9,7 +9,7 @@ done when its exit criteria pass, not when the code looks finished.
 | 1 | Data layer | ✅ Done — 2026-07-27 |
 | 2 | Features | ✅ Done — 2026-07-27 |
 | 3 | Labels and weights | ✅ Done — 2026-07-27 |
-| 4 | Cross-validation | ⬜ Not started |
+| 4 | Cross-validation | ✅ Done — 2026-07-27 |
 | 5 | Models and leaderboard | ⬜ Not started |
 | 6 | Signals and risk | ⬜ Not started |
 | 7 | Backtest engine | ⬜ Not started |
@@ -423,3 +423,73 @@ watched fail before a line of implementation existed.
 - Winsorisation (§7.3) — belongs inside the sklearn pipeline so it is fitted on
   train rows only (I3), which is Phase 5
 - Wiring `build_features` and `build_labels` into a run directory — Phase 10
+
+---
+
+## Phase 4 — Cross-validation ✅
+
+**Completed:** 2026-07-27
+**`CURRENT_PHASE`:** `4` — `test_label_span_purged` is now required
+
+### Built
+
+- **`cv/splits.py`** — the `Split` record and the shared purge/embargo
+  machinery. Every scheme routes through `build_split`, so there is exactly one
+  implementation of I4 rather than three.
+- **`cv/walkforward.py`** — anchored and rolling, chronological, the primary
+  scheme and the one the Fold Strip will draw.
+- **`cv/purged.py`** — contiguous test blocks with purging and embargo.
+- **`cv/cpcv.py`** — all `C(N, k)` combinations, giving the multiple backtest
+  paths PBO needs (§11.3).
+- **`tests/unit/test_no_banned_splitters.py`** — the §9 ban on
+  `train_test_split` and plain `KFold`.
+
+### Exit criteria
+
+| Criterion | Result |
+|---|---|
+| `test_label_span_purged` for all three schemes across randomised horizons | ✅ one named test over four configurations, plus three hypothesis-driven variants sweeping horizon 1–30, fold counts, window geometries, anchored/rolling, and embargo 0–10% |
+| Splits round-trip through JSON | ✅ `test_splits_round_trip_through_json`, and the serialisation is canonical so `folds.json` is byte-comparable between runs |
+| CI ban on `train_test_split` / `KFold` | ✅ `test_no_banned_splitter_appears_in_library_code` |
+| `just verify` green | ✅ 558 passed, 4 skipped, coverage 91.14%; leakage suite 49 passed |
+
+### Deviations and judgement calls
+
+1. **`Split` carries `purged_idx` and `embargoed_idx` beyond §9's fields.**
+   §9 specifies counts, but also requires that "the purge/embargo gaps must be
+   visible in the UI" (§13.2). Counts alone cannot be drawn. The arrays are
+   serialised so the Fold Strip renders the gaps that were actually used rather
+   than gaps it infers.
+2. **The splitter ban parses instead of grepping.** §9 asks for a CI grep, but
+   a text search also matches the docstrings that *explain* the ban — it fired
+   on `cv/purged.py` and `cv/__init__.py`, both of which only mention
+   `train_test_split` to say it is forbidden. A check that flags its own
+   documentation is a check that gets silenced, so it walks the AST and looks at
+   identifiers only. That is also stricter: it catches
+   `from sklearn.model_selection import KFold as _k`, which a naive grep for
+   `KFold(` would miss.
+3. **`PurgedKFold` trains on data that follows the test block**, and its module
+   docstring says so. That is legitimate for measuring a predictive
+   relationship and dishonest for simulating a strategy someone could have run.
+   Walk-forward is the scheme for the latter and remains the default.
+
+### What surprised us
+
+- **The leakage registry caught a naming slip immediately.** The three
+  hypothesis variants were named `test_label_span_purged_kfold` and so on;
+  §12.3 requires a test called exactly `test_label_span_purged`, and
+  `test_leakage_suite_complete.py` failed the moment `CURRENT_PHASE` was bumped.
+  The registry built in Phase 0 did precisely the job it was built for.
+- **The interval-overlap test is worth writing as a negation.** `not (ends
+  before it starts or starts after it ends)` is harder to get wrong than
+  enumerating the four overlap cases, and the hypothesis sweep over horizons
+  1–30 is what gives any confidence that the boundaries are right.
+- **The embargo needs the *maximum* `t_end` of the test block**, not its last
+  `t_start`. Using the latter would leave the final horizon's worth of test
+  labels unprotected — the subtlest of the off-by-ones here, and the reason
+  `apply_purge_and_embargo` takes `max(index[test].max(), t_end[test].max())`.
+
+### Deferred
+
+- Wiring folds into a run directory as `folds.json` — Phase 10
+- Per-fold metrics on the `Split` record — Phase 8, once metrics exist
