@@ -103,11 +103,15 @@ class CsvProvider:
             raise ProviderError(msg) from exc
 
         bars = validate_bars(normalise_bars(raw, symbol=symbol))
-        lower = pd.Timestamp(start).tz_convert("UTC") if pd.Timestamp(start).tz else (
-            pd.Timestamp(start).tz_localize("UTC")
+        lower = (
+            pd.Timestamp(start).tz_convert("UTC")
+            if pd.Timestamp(start).tz
+            else (pd.Timestamp(start).tz_localize("UTC"))
         )
-        upper = pd.Timestamp(end).tz_convert("UTC") if pd.Timestamp(end).tz else (
-            pd.Timestamp(end).tz_localize("UTC")
+        upper = (
+            pd.Timestamp(end).tz_convert("UTC")
+            if pd.Timestamp(end).tz
+            else (pd.Timestamp(end).tz_localize("UTC"))
         )
         return bars.loc[(bars.index >= lower) & (bars.index <= upper)]
 

@@ -92,7 +92,7 @@ def _as_utc_datetime(value: dt.date, *, end_of_day: bool) -> dt.datetime:
     return dt.datetime.combine(value, time, tzinfo=dt.UTC)
 
 
-def ingest_dataset(  # noqa: PLR0913 - each parameter is a distinct ingestion input
+def ingest_dataset(
     symbol: str,
     config: DataConfig,
     *,

@@ -150,7 +150,7 @@ class Catalog:
             with closing(self._connect()) as con:
                 con.execute("DELETE FROM datasets WHERE dataset_id = ?", [record.dataset_id])
                 con.execute(
-                    f"INSERT INTO datasets ({', '.join(_COLUMNS)}) VALUES ({placeholders})",  # noqa: S608
+                    f"INSERT INTO datasets ({', '.join(_COLUMNS)}) VALUES ({placeholders})",
                     values,
                 )
         except duckdb.Error as exc:
@@ -168,7 +168,7 @@ class Catalog:
         """
         with closing(self._connect()) as con:
             row = con.execute(
-                f"SELECT {', '.join(_COLUMNS)} FROM datasets WHERE dataset_id = ?",  # noqa: S608
+                f"SELECT {', '.join(_COLUMNS)} FROM datasets WHERE dataset_id = ?",
                 [dataset_id],
             ).fetchone()
         return None if row is None else _to_record(row)
@@ -201,7 +201,7 @@ class Catalog:
         """
         with closing(self._connect()) as con:
             rows = con.execute(
-                f"SELECT {', '.join(_COLUMNS)} FROM datasets ORDER BY dataset_id"  # noqa: S608
+                f"SELECT {', '.join(_COLUMNS)} FROM datasets ORDER BY dataset_id"
             ).fetchall()
         return [_to_record(row) for row in rows]
 

@@ -7,7 +7,7 @@ cannot honour that raises rather than returning something approximate.
 `max_lookback` exists because vendors silently truncate. Yahoo will not serve
 one-minute bars older than about thirty days, and a request for five years of
 them returns thirty days of data with no error at all. A run whose config asks
-for 2005–2025 and whose lake holds a month of it is not a small problem — it is
+for 2005 to 2025 and whose lake holds a month of it is not a small problem — it is
 every metric in the tearsheet being computed on the wrong sample.
 """
 

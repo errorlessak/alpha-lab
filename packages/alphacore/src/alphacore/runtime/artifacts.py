@@ -325,7 +325,7 @@ class ArtifactStore:
 
 
 @contextmanager
-def run_context(  # noqa: PLR0913 - every parameter is a distinct provenance field
+def run_context(
     *,
     name: str,
     seed: int,

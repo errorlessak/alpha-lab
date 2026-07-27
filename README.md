@@ -8,10 +8,11 @@ It deliberately refuses to trade. There is no broker connectivity, no order
 routing, and no recommendation of any kind. The system reports evidence; the
 judgement stays with the researcher.
 
-> **Status: Phase 1 of 14.** Runtime foundations and the data layer are in
-> place — determinism, hashing, run manifests, the immutable artifact store,
-> the config schema, point-in-time ingestion, the parquet lake, the duckdb
-> catalog, and quality reporting. Features, labels, CV, models, and the
+> **Status: Phase 3 of 14.** In place: determinism and hashing, run manifests,
+> the immutable artifact store, the config schema, point-in-time ingestion, the
+> parquet lake, the duckdb catalog, quality reporting, 27 in-house causal
+> feature primitives with a leak-proof registry, and four labelling methods with
+> uniqueness and time-decay sample weights. Cross-validation, models, and the
 > backtester arrive phase by phase; see [PROGRESS.md](PROGRESS.md). This README
 > gets its screenshots and its honest headline result at Phase 14 (§20).
 
@@ -19,8 +20,9 @@ judgement stays with the researcher.
 
 Almost any short-horizon backtest can be made to look good. The usual failures
 are well known and individually boring: same-bar execution, scaling before
-splitting, global quantile labels, zero costs, reporting the best of forty models
-without a haircut. Together they produce a Sharpe ratio that means nothing.
+splitting, global quantile labels, zero costs, reporting the best of forty
+models without a haircut. Together they produce a Sharpe ratio that means
+nothing.
 
 Alpha Lab treats each of those failures as an invariant to enforce and a test to
 enforce it with (§4 and §12.3 of [ARCHITECTURE.md](ARCHITECTURE.md)). The
@@ -29,9 +31,14 @@ interval, a deflated Sharpe haircut carrying the actual trial count, the
 probability of backtest overfitting, and the round-trip cost in basis points at
 which the edge disappears.
 
+Some of those invariants are enforced rather than documented. A feature that
+names a label column as an input cannot be registered. Quantile label edges
+cannot be fitted without an explicit training mask. Correlation pruning cannot
+run on the full sample. Each raises rather than warns.
+
 The most valuable output this repository can produce is a run where the model
-does **not** find an edge, reported honestly, with the diagnostics that prove the
-pipeline would have detected one if it existed.
+does **not** find an edge, reported honestly, with the diagnostics that prove
+the pipeline would have detected one if it existed.
 
 ## Getting started
 
@@ -39,20 +46,19 @@ Requires [uv](https://docs.astral.sh/uv/) and [just](https://just.systems/).
 
 ```bash
 just setup
+```
+
+```bash
 just verify
+```
+
+```bash
 uv run alpha doctor
 ```
 
 `alpha doctor` reports whether this machine can produce reproducible runs — the
 interpreter version, whether `PYTHONHASHSEED` is pinned, and the versions of
 every package that can change a result.
-
-```bash
-uv run alpha dev scratch-run
-```
-
-Writes a throwaway run directory with a valid manifest, exercising the full
-artifact lifecycle without touching market data.
 
 ### Ingest some data
 
@@ -83,6 +89,7 @@ uv run alpha data pull -c configs/experiments/spy_daily_tb.yaml
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The build specification. The contract. |
 | [PROGRESS.md](PROGRESS.md) | Build log — what is done, what was deferred, what surprised us. |
+| [docs/data-dictionary.md](docs/data-dictionary.md) | Every feature: inputs, parameters, warm-up cost. Generated from the registry. |
 | [docs/decisions/](docs/decisions/) | ADRs. Every deviation from a naïve stack, with its trade-off. |
 | [DISCLAIMER.md](DISCLAIMER.md) | Research software. Not investment advice. |
 

@@ -7,8 +7,8 @@ done when its exit criteria pass, not when the code looks finished.
 |---|---|---|
 | 0 | Foundations | ✅ Done — 2026-07-27 |
 | 1 | Data layer | ✅ Done — 2026-07-27 |
-| 2 | Features | ⬜ Not started |
-| 3 | Labels and weights | ⬜ Not started |
+| 2 | Features | ✅ Done — 2026-07-27 |
+| 3 | Labels and weights | ✅ Done — 2026-07-27 |
 | 4 | Cross-validation | ⬜ Not started |
 | 5 | Models and leaderboard | ⬜ Not started |
 | 6 | Signals and risk | ⬜ Not started |
@@ -256,3 +256,170 @@ no leakage test from §12.3; the first is `test_future_poison`, at Phase 2.
   tooling
 - Multi-symbol universes: ingestion loops over symbols, but nothing downstream
   consumes more than one yet
+
+---
+
+## Phase 2 — Features ✅
+
+**Completed:** 2026-07-27
+**`CURRENT_PHASE`:** `2` at completion — `test_future_poison` is now required
+**Method:** test-driven throughout. Every module here had its tests written and
+watched fail before a line of implementation existed.
+
+### Built
+
+- **`features/primitives.py`** — all 27 primitives from §7.2 as pure numpy
+  functions: SMA, EMA, WMA, HMA, RSI, MACD, ROC, momentum, PPO, true range,
+  ATR, realised vol, Bollinger, rolling std, Parkinson, Garman-Klass, OBV,
+  rolling VWAP and distance, CMF, volume ratio, dollar volume, log and simple
+  returns, rolling statistics, z-score, percentile rank, and fractional
+  differencing.
+- **`features/registry.py`** — `FeatureSpec`, the causality contract, and the
+  data-dictionary generator. Registering a feature that names a label column as
+  an input raises `LeakageError` (§4, I5) — the leak is unrepresentable, not
+  merely discouraged.
+- **`features/builtins.py`** — registration adapters with declared lookbacks.
+- **`features/transforms.py`** — lags and warm-up dropping, both causal by
+  construction.
+- **`features/pipeline.py`** — spec expansion, computation, lagging, warm-up
+  dropping, and a `FeatureManifest` recording every column's provenance.
+- **`features/selection.py`** — pairwise and clustered correlation pruning,
+  both requiring an explicit `fit_mask`.
+- **`data/calendars.py`** — `periods_per_year` derived from the calendar,
+  never hardcoded (§11.1).
+- **`docs/data-dictionary.md`** — generated, with a CI check that it matches.
+
+### Exit criteria
+
+| Criterion | Result |
+|---|---|
+| Golden indicator tests to `1e-9` | ✅ 8 frozen-value tests against `tests/golden/indicators/reference.csv` |
+| `test_future_poison` over the whole registry | ✅ 27 features parametrised, all pass; the leaky control is caught |
+| Data dictionary regenerates identically | ✅ `test_the_committed_file_matches_the_registry` |
+| `just verify` green | ✅ 458 passed, coverage 93.56% |
+
+### Deviations
+
+1. **The reference oracle is a naive transcription, not vendor values.** §7.2
+   asks for "hand-verified expected values from the original published
+   definitions". Vendor exports are not that — they bake in the vendor's own
+   smoothing conventions, are not redistributable, and disagreeing with one
+   tells you nothing about who is right. Instead:
+   `tests/golden/reference_indicators.py` implements each formula as an
+   explicit loop, a genuinely different algorithm from the vectorised one, and
+   the values are additionally frozen into a committed CSV so editing both
+   implementations the same wrong way still fails. Hand arithmetic covers the
+   closed-form cases (SMA, WMA, EMA seeding, ROC, true range, log returns)
+   where the expected value can be read off the test.
+2. **Two modules added under `features/`** beyond §3's list: `builtins.py`
+   (registration adapters, kept apart so the primitives stay pure array
+   functions) and `__main__.py` (see below).
+3. **Pruning is not a pipeline step.** §7.3 says the correlation matrix is
+   built on fold 0's training rows; the pipeline has no folds. `build_features`
+   therefore computes and lags, and `prune_correlated` is applied inside the
+   fold with an explicit mask. Requesting pruning without one raises
+   `LeakageError`.
+4. **`max-args` raised to 8** in the ruff config, with the reasoning in
+   `pyproject.toml`: several functions take many keyword-only provenance
+   fields, and bundling them into an options object would hide exactly what a
+   reviewer needs to see at the call site.
+
+### What surprised us
+
+- **`python -m alphacore.features.registry` built an empty registry.** Running
+  a module with `-m` executes it a second time under the name `__main__`, so
+  that copy got its own empty `_REGISTRY` while the built-ins registered into
+  the first. The symptom was a data dictionary with a header and no features —
+  which reads like a formatting bug and is not. Fixed with a dedicated
+  `__main__.py`; the reasoning is in its docstring.
+- **Fractional differencing is expensive in sample size.** At `d=0.4` the
+  truncated weight expansion is 282 bars at `thresh=1e-4` and **1,458 bars** at
+  `1e-5` — nearly six years of daily data, gone to warm-up. The spec's example
+  config uses `1e-4`; the registry declares the real lookback and the data
+  dictionary prints it, because discovering it after a run has silently lost a
+  decade of history is much worse.
+- **A PowerShell `-replace` on a UTF-8 source file corrupted it.**
+  `Get-Content -Raw` decoded the bytes as ANSI and `Set-Content` re-encoded
+  them as UTF-8, so every section sign and em dash became a two-character
+  sequence, plus a BOM on the front. It happened twice — once in
+  `features/builtins.py` and once, after the lesson was written down, in
+  `README.md`. Both repaired, and the check is now automated:
+  `tests/unit/test_source_encoding.py` fails on a BOM or a mojibake sequence
+  anywhere in the tree. Edit source files with editing tools, not with shell
+  string substitution.
+- **Two contract tests caught wrong assumptions rather than wrong code.**
+  `dollar_volume` and `obv` genuinely have no warm-up, and the alphabetical
+  survivor of a correlated pair is deliberate — both tests were asserting
+  something untrue about correct implementations.
+
+---
+
+## Phase 3 — Labels and weights ✅
+
+**Completed:** 2026-07-27
+**`CURRENT_PHASE`:** `3` — `test_quantile_edges_per_fold` is now required
+
+### Built
+
+- **`schemas/labels.py`** — the `(t_start, t_end, label, realised_return,
+  weight)` contract, validated. `t_end` is the column the CV purger consumes
+  (§8.2); a frame without it cannot be purged.
+- **`labels/horizon.py`** — `horizon_return`, `horizon_sign` with a dead zone
+  that drops rather than labels flat, and `horizon_quantile` with **per-fold**
+  bin edges.
+- **`labels/triple_barrier.py`** — ATR-scaled barriers evaluated on intrabar
+  high and low, with the stop winning any same-bar tie (§12.1). `t_end` is the
+  touch bar, not the vertical barrier, so purging blocks the right number of
+  bars.
+- **`labels/meta.py`** — meta-labelling: the primary rule picks the side, the
+  model answers only whether to take the trade.
+- **`labels/weights.py`** — uniqueness from average inverse concurrency
+  (computed with a difference array, one pass) times linear time decay in
+  cumulative uniqueness.
+- **`labels/__init__.py`** — `build_labels`, dispatching on config and
+  attaching weights, class balance, and mean uniqueness.
+
+### Exit criteria
+
+| Criterion | Result |
+|---|---|
+| Triple barrier verified against a hand-computed 20-bar fixture | ✅ `test_triple_barrier_hand_computed_twenty_bar_fixture`, plus explicit upper-touch, lower-touch, vertical-expiry, and same-bar-tie cases |
+| Uniqueness weights sum correctly on a synthetic overlapping set | ✅ non-overlapping labels weigh 1.0; a uniquely-spanning label outweighs a crowded one; weights average to 1.0 |
+| Per-fold quantile test passes | ✅ `tests/leakage/test_quantile_edges_per_fold.py` — 6 tests including a global-fit control |
+| `just verify` green | ✅ 504 passed, 5 skipped, coverage 91.80% |
+
+### Deviations
+
+1. **`horizon_quantile` requires a `fit_mask` and raises without one.** §8.1
+   says edges must be fitted per fold; making the parameter required means
+   there is no API path that fits globally by accident. Same discipline as
+   correlation pruning.
+2. **The `build_labels` dispatch has no `else` branch.** `LabelsConfig.method`
+   is a `Literal` over exactly four values, so mypy proves the chain
+   exhaustive. Adding a fifth without adding a branch becomes a type error —
+   a stronger guard than the runtime `raise` it replaced.
+
+### What surprised us
+
+- **The dead zone should drop, not label flat.** §8.1 says
+  `|r| < min_return → drop` for `horizon_sign`, and the reason is worth
+  stating: a move too small to trade carries no directional information, and
+  labelling it "flat" teaches the model that noise has a sign. Triple-barrier
+  vertical expiries are different — those are genuine "nothing happened"
+  observations and stay as class 0.
+- **Time decay is linear in *cumulative uniqueness*, not in bar count.** A
+  stretch of heavily overlapping labels therefore ages the schedule less than a
+  stretch of independent ones, which is right: it carries less information. The
+  first observation lands at `decay + (1-decay)/n` rather than exactly `decay`,
+  which cost one wrong test expectation before it was understood.
+- **Sample weights get a `tiny` floor rather than zero.** A zero weight removes
+  an observation from the fit without recording that it went; a floored one
+  stays visible in the class balance and the manifest.
+
+### Deferred to later phases
+
+- Mean Decrease Accuracy and clustered feature importance (§7.3) — both need a
+  fitted model, so they land with Phase 5
+- Winsorisation (§7.3) — belongs inside the sklearn pipeline so it is fitted on
+  train rows only (I3), which is Phase 5
+- Wiring `build_features` and `build_labels` into a run directory — Phase 10

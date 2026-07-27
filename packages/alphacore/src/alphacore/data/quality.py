@@ -125,7 +125,9 @@ def _timestamps(index: pd.Index) -> tuple[dt.datetime, ...]:
     return tuple(pd.Timestamp(t).to_pydatetime() for t in index[:_MAX_LISTED_TIMESTAMPS])
 
 
-def _longest_gap(missing: pd.DatetimeIndex, expected: pd.DatetimeIndex) -> tuple[int, pd.Timestamp | None]:
+def _longest_gap(
+    missing: pd.DatetimeIndex, expected: pd.DatetimeIndex
+) -> tuple[int, pd.Timestamp | None]:
     """Find the longest unbroken run of missing bars.
 
     A hundred scattered missing bars is a data-vendor annoyance. A hundred
@@ -220,9 +222,7 @@ def assess_quality(
         )
 
     first, last = bars.index[0], bars.index[-1]
-    expected = expected_bar_index(
-        start or first.date(), end or last.date(), interval, calendar
-    )
+    expected = expected_bar_index(start or first.date(), end or last.date(), interval, calendar)
     present = pd.DatetimeIndex(bars.index)
     missing = expected.difference(present)
     unexpected = present.difference(expected)
@@ -276,8 +276,7 @@ def assess_quality(
         status = QualityStatus.WARN
     if len(extremes) > 0:
         reasons.append(
-            f"{len(extremes)} bars have a robust return z-score above "
-            f"{thresholds.extreme_return_z}"
+            f"{len(extremes)} bars have a robust return z-score above {thresholds.extreme_return_z}"
         )
 
     if len(unexpected) > 0 and status is QualityStatus.PASS:

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import datetime as dt
 import functools
+import math
 from typing import TYPE_CHECKING, Final
 
 import exchange_calendars as xcals
@@ -34,11 +35,25 @@ __all__ = [
     "CRYPTO_CALENDAR",
     "DEFAULT_EQUITY_CALENDAR",
     "PROVIDER_DEFAULT_CALENDAR",
+    "REFERENCE_SPAN",
     "available_calendars",
+    "bars_per_session",
     "default_calendar_for",
     "expected_bar_index",
+    "minutes_per_session",
     "missing_bars",
+    "periods_per_year",
+    "sessions_per_year",
 ]
+
+REFERENCE_SPAN: Final[tuple[str, str]] = ("2015-01-01", "2024-12-31")
+"""Decade used to measure a calendar's average session count and length. Fixed
+so `periods_per_year` is deterministic: measuring over "the last ten years"
+would make an annualisation factor — and therefore every Sharpe ratio — depend
+on the day the run happened to execute."""
+
+_REFERENCE_YEARS: Final[float] = 10.0
+_MINUTES_PER_DAY: Final[int] = 1440
 
 CRYPTO_CALENDAR: Final[str] = "24/7"
 DEFAULT_EQUITY_CALENDAR: Final[str] = "XNYS"
@@ -92,7 +107,7 @@ def _get_calendar(code: str) -> xcals.ExchangeCalendar:
     """
     try:
         return xcals.get_calendar(code)
-    except Exception as exc:  # xcals raises several unrelated types  # noqa: BLE001
+    except Exception as exc:  # xcals raises several unrelated types
         msg = (
             f"Unknown market calendar {code!r}. Set data.calendar to one of the codes "
             f"listed by alphacore.data.calendars.available_calendars()."
@@ -164,7 +179,7 @@ def expected_bar_index(
                     force=True,
                 )
             )
-    except Exception as exc:  # xcals raises several unrelated types  # noqa: BLE001
+    except Exception as exc:  # xcals raises several unrelated types
         msg = (
             f"Could not build a {interval.value} grid on calendar {calendar!r} "
             f"between {first.date()} and {last.date()}: {exc}"
@@ -201,6 +216,98 @@ def _finalise_index(index: pd.DatetimeIndex) -> pd.DatetimeIndex:
     out = pd.DatetimeIndex(out).astype(TS_DTYPE)
     out.name = TS_INDEX_NAME
     return out
+
+
+@functools.lru_cache(maxsize=8)
+def sessions_per_year(calendar: str) -> float:
+    """Measure a calendar's average trading sessions per year.
+
+    Measured over `REFERENCE_SPAN` rather than assumed, so a calendar's real
+    holiday schedule is reflected. The NYSE comes out near 251.6, not the
+    conventional 252.
+
+    Args:
+        calendar: Calendar code.
+
+    Returns:
+        Sessions per year.
+
+    Raises:
+        DataError: If the calendar is unknown.
+    """
+    cal = _get_calendar(calendar)
+    start = max(_as_timestamp(REFERENCE_SPAN[0]), _as_timestamp(cal.first_session))
+    end = min(_as_timestamp(REFERENCE_SPAN[1]), _as_timestamp(cal.last_session))
+    return len(cal.sessions_in_range(start, end)) / _REFERENCE_YEARS
+
+
+@functools.lru_cache(maxsize=8)
+def minutes_per_session(calendar: str) -> float:
+    """Measure a calendar's average session length in minutes.
+
+    Args:
+        calendar: Calendar code.
+
+    Returns:
+        Minutes per session — 390 for the NYSE, 1440 for a 24/7 market.
+
+    Raises:
+        DataError: If the calendar is unknown.
+    """
+    cal = _get_calendar(calendar)
+    start = max(_as_timestamp(REFERENCE_SPAN[0]), _as_timestamp(cal.first_session))
+    end = min(_as_timestamp(REFERENCE_SPAN[1]), _as_timestamp(cal.last_session))
+    sessions = cal.sessions_in_range(start, end)
+    if len(sessions) == 0:
+        return float(_MINUTES_PER_DAY)
+    opens = pd.DatetimeIndex(cal.opens.loc[sessions])
+    closes = pd.DatetimeIndex(cal.closes.loc[sessions])
+    return float((closes - opens).mean().total_seconds() / 60.0)
+
+
+def bars_per_session(interval: Interval, calendar: str) -> int:
+    """How many bars of this interval a single session contains.
+
+    Rounded **up**, matching `expected_bar_index`, which uses `force=True` and
+    therefore emits a final partial bar. Annualisation has to agree with the
+    bar grid the system actually produces; taking 6.5 hourly bars from a
+    6.5-hour session when the grid emits 7 would leave every Sharpe ratio
+    quietly 4% wrong.
+
+    Args:
+        interval: Bar interval.
+        calendar: Calendar code.
+
+    Returns:
+        Bars per session, at least 1.
+
+    Raises:
+        DataError: If the calendar is unknown.
+    """
+    if not interval.is_intraday:
+        return 1
+    return max(1, math.ceil(minutes_per_session(calendar) / interval.minutes))
+
+
+def periods_per_year(interval: Interval, calendar: str) -> float:
+    """Bars per year for an interval on a calendar (§11.1).
+
+    `periods_per_year = sessions_per_year * bars_per_session`
+
+    Never hardcoded, and always stored in the tearsheet: a Sharpe ratio with an
+    undocumented annualisation factor is unfalsifiable.
+
+    Args:
+        interval: Bar interval.
+        calendar: Calendar code.
+
+    Returns:
+        Bars per year.
+
+    Raises:
+        DataError: If the calendar is unknown.
+    """
+    return sessions_per_year(calendar) * bars_per_session(interval, calendar)
 
 
 def missing_bars(actual: Iterable[pd.Timestamp], expected: pd.DatetimeIndex) -> pd.DatetimeIndex:

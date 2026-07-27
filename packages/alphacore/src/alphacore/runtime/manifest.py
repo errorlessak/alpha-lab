@@ -242,7 +242,7 @@ class RunManifest(BaseModel):
     notes: dict[str, str] = Field(default_factory=dict)
 
     @classmethod
-    def start(  # noqa: PLR0913 - every parameter is a distinct provenance field
+    def start(
         cls,
         *,
         name: str,

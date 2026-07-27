@@ -68,6 +68,13 @@ ignore = [
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+[tool.ruff.lint.pylint]
+# Several functions here take many *keyword-only* parameters because each one
+# is a distinct provenance or configuration field — a run manifest, an
+# ingestion call, a quality assessment. Bundling them into an options object
+# would hide exactly the fields a reviewer needs to see at the call site.
+max-args = 8
+
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ANN", "D", "PLR2004", "ARG"]
 
@@ -98,6 +105,7 @@ module = [
     "pandas.*",
     "pandera.*",
     "pyarrow.*",
+    "scipy.*",
     "yfinance.*",
 ]
 ignore_missing_imports = true

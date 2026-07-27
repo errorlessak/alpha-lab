@@ -63,9 +63,11 @@ verify: fmt lint types test test-leak
 # The gate in its final form, for use once every phase has landed.
 verify-full: verify smoke e2e
 
-# Regenerate the feature data dictionary from the registry (Phase 2).
+# Regenerate the feature data dictionary from the registry (§7.1).
+# The command writes the file itself rather than relying on shell redirection,
+# which defaults to UTF-16 in Windows PowerShell.
 docs:
-    uv run python -m alphacore.features.registry --emit-docs
+    uv run python -m alphacore.features --emit-docs --output docs/data-dictionary.md
 
 # Run the API and the web dev server.
 serve:

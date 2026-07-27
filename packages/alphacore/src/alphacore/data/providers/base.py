@@ -39,7 +39,7 @@ RETRYABLE_STATUS_CODES: Final[frozenset[int]] = frozenset({408, 425, 429, 500, 5
 """HTTP statuses worth retrying: rate limits and transient server faults. A 404
 or a 401 is retried by nobody sensible — the answer will not change."""
 
-_JITTER_RNG: Final[random.Random] = random.Random(0)  # noqa: S311 - backoff timing only
+_JITTER_RNG: Final[random.Random] = random.Random(0)
 
 
 def _backoff_delay(attempt: int, *, base_s: float, cap_s: float) -> float:
@@ -58,7 +58,7 @@ def _backoff_delay(attempt: int, *, base_s: float, cap_s: float) -> float:
     return _JITTER_RNG.uniform(0.0, ceiling)
 
 
-def retry(
+def retry[T](
     operation: Callable[[], T],
     *,
     description: str,
