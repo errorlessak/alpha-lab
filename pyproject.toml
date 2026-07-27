@@ -88,13 +88,27 @@ mypy_path = "packages/alphacore/src:packages/alphaservice/src"
 explicit_package_bases = true
 namespace_packages = true
 
+# Third-party packages that ship no type information. Each is listed
+# explicitly rather than relying on a blanket `ignore_missing_imports`, so a
+# newly added untyped dependency is a decision rather than an accident.
+[[tool.mypy.overrides]]
+module = [
+    "duckdb.*",
+    "exchange_calendars.*",
+    "pandas.*",
+    "pandera.*",
+    "pyarrow.*",
+    "yfinance.*",
+]
+ignore_missing_imports = true
+
 # --------------------------------------------------------------------------
 # pytest
 # --------------------------------------------------------------------------
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
-addopts = "-q --strict-markers --strict-config"
+addopts = "-q --strict-markers --strict-config -m 'not network'"
 markers = [
     "network: hits a live provider; deselected by default (see §6.1)",
     "slow: takes more than a few seconds",
@@ -128,4 +142,4 @@ layers = ["alphaservice", "alphacore"]
 name = "alphacore is not web-shaped"
 type = "forbidden"
 source_modules = ["alphacore"]
-forbidden_modules = ["fastapi", "starlette", "uvicorn", "typer", "click", "duckdb"]
+forbidden_modules = ["fastapi", "starlette", "uvicorn", "typer", "click"]

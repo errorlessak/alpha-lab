@@ -1,6 +1,10 @@
 # Artifact store and data lake — never committed (§3).
-data/
-runs/
+#
+# Leading slashes matter. An unanchored `data/` also matches
+# packages/alphacore/src/alphacore/data/, which silently excludes the entire
+# data layer from the repository.
+/data/
+/runs/
 
 # Python
 .venv/

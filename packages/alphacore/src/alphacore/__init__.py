@@ -7,6 +7,12 @@ multiple-testing correction.
 This package imports nothing web-shaped and nothing optional. In particular
 `import alphacore` must succeed with PyTorch uninstalled; sequence models live
 behind the `[dl]` extra and import torch lazily (§10.3).
+
+Only `errors` and `runtime` are imported eagerly. The heavier subpackages —
+`config`, `schemas`, `data`, `pipelines` — are imported on demand
+(`from alphacore.data import read_bars`), because pulling duckdb, pyarrow and
+`exchange_calendars` into the import path would add seconds to `alpha --help`
+for no benefit.
 """
 
 from __future__ import annotations

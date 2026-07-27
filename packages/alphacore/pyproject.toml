@@ -4,11 +4,16 @@ version = "0.1.0"
 description = "Pure research library: data, features, labels, CV, models, backtest, evaluation."
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "duckdb>=1.1",
+    "exchange-calendars>=4.5",
     "loguru>=0.7.2",
     "numpy>=2.0",
     "pandas>=2.2",
+    "pandera>=0.20",
+    "pyarrow>=17",
     "pydantic>=2.8",
     "pyyaml>=6.0",
+    "yfinance>=0.2.40",
 ]
 
 [project.optional-dependencies]

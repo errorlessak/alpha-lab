@@ -1,0 +1,70 @@
+# The smoke experiment: tiny, offline, and used by CI (§3).
+#
+# Runs entirely from the committed fixture in samples/, so `just smoke` needs no
+# network and no credentials. The series is a synthetic random walk with no
+# predictable structure — see samples/make_fixtures.py — which makes it the
+# right subject for §19's honest headline result: the pipeline should find
+# nothing, and should be able to prove it would have found something if there
+# were something to find.
+
+meta:
+  name: smoke
+  description: Offline end-to-end smoke run on the committed synthetic fixture.
+  seed: 20260727
+
+data:
+  provider: csv
+  csv_dir: samples
+  symbols: [SYNTH]
+  benchmark: SYNTH
+  interval: 1d
+  calendar: XNYS
+  start: "2015-01-02"
+  end: "2024-12-31"
+  adjustment: unadjusted_plus_factor
+  quality:
+    max_missing_bar_pct: 0.5
+    max_zero_volume_pct: 0.5
+    fail_on_ohlc_violation: true
+
+features:
+  specs:
+    - {name: sma, params: {window: [10, 50]}}
+    - {name: rsi, params: {window: [14]}}
+    - {name: atr, params: {window: [14]}}
+    - {name: realised_vol, params: {window: [20]}}
+    - {name: log_return, params: {window: [1, 5]}}
+  lags: [1, 2]
+  prune:
+    method: correlation
+    threshold: 0.95
+
+labels:
+  method: triple_barrier
+  horizon_bars: 5
+  triple_barrier:
+    profit_mult: 2.0
+    loss_mult: 1.0
+    vertical_bars: 5
+    atr_window: 14
+
+cv:
+  scheme: walkforward
+  walkforward:
+    train_bars: 504
+    test_bars: 252
+    anchored: false
+    step_bars: 252
+  embargo_pct: 0.01
+  min_train_bars: 250
+
+models:
+  candidates: [baseline_buyhold, baseline_momentum, logistic]
+  calibrate: sigmoid
+  tuning:
+    enabled: false
+    n_trials: 5
+    timeout_s: 60
+
+reporting:
+  bootstrap_samples: 200

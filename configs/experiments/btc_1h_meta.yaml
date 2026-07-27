@@ -1,0 +1,107 @@
+# Hourly BTC, meta-labelled (§5).
+#
+# The `binance` provider is specified in §6.1 but is not implemented yet
+# (Phase 1 ships csv and yahoo). This config is committed now because it pins
+# the crypto side of the calendar contract — a 24/7 grid, 365-day
+# annualisation — and those choices should be reviewable before the provider
+# exists. `alpha data pull` on it fails with a message naming the gap rather
+# than quietly substituting another provider.
+
+meta:
+  name: btc-1h-meta
+  description: Hourly BTC/USDT, meta-labelling on a momentum primary rule.
+  seed: 20260727
+
+data:
+  provider: binance
+  symbols: [BTCUSDT]
+  benchmark: BTCUSDT
+  interval: 1h
+  calendar: "24/7"
+  start: "2020-01-01"
+  end: "2025-12-31"
+  adjustment: raw
+  quality:
+    max_missing_bar_pct: 1.0
+    max_zero_volume_pct: 2.0
+    fail_on_ohlc_violation: true
+
+features:
+  specs:
+    - {name: ema, params: {window: [12, 26, 96]}}
+    - {name: rsi, params: {window: [14]}}
+    - {name: macd, params: {fast: 12, slow: 26, signal: 9}}
+    - {name: atr, params: {window: [14]}}
+    - {name: realised_vol, params: {window: [24, 168]}}
+    - {name: bollinger, params: {window: 20, k: 2.0}}
+    - {name: obv, params: {}}
+    - {name: cmf, params: {window: [20]}}
+    - {name: log_return, params: {window: [1, 6, 24]}}
+    - {name: zscore, params: {window: [24, 168]}}
+    - {name: fracdiff, params: {d: 0.4, thresh: 1.0e-4}}
+  lags: [1, 2, 6, 24]
+  prune:
+    method: clustered_correlation
+    threshold: 0.95
+
+labels:
+  method: triple_barrier
+  horizon_bars: 24
+  triple_barrier:
+    profit_mult: 2.0
+    loss_mult: 1.0
+    vertical_bars: 24
+    atr_window: 14
+  meta_labelling: true
+  sample_weights:
+    uniqueness: true
+    time_decay: 0.5
+
+cv:
+  scheme: cpcv
+  cpcv:
+    n_groups: 8
+    n_test_groups: 2
+  embargo_pct: 0.02
+  min_train_bars: 2000
+
+models:
+  candidates: [baseline_buyhold, baseline_momentum, logistic, lightgbm]
+  calibrate: isotonic
+  tuning:
+    enabled: true
+    n_trials: 40
+    timeout_s: 1800
+    objective: oos_net_sharpe
+
+signal:
+  long_threshold: 0.58
+  short_threshold: 0.42
+  allow_short: true
+  hysteresis: 0.03
+  sizing:
+    method: vol_target
+    target_annual_vol: 0.20
+    max_leverage: 1.0
+
+risk:
+  stop_loss_atr: 2.0
+  take_profit_atr: 4.0
+  max_drawdown_kill: 0.35
+  max_daily_loss: 0.05
+  max_concurrent_positions: 1
+
+backtest:
+  initial_capital: 100000
+  execution_lag_bars: 1
+  fill_price: next_open
+  costs:
+    commission_bps: 4.0
+    min_commission: 0.0
+    half_spread_bps: 1.0
+    impact_model: sqrt
+    impact_coefficient: 0.1
+    max_participation: 0.02
+    borrow_bps_annual: 0.0
+    financing_bps_annual: 0.0
+  cost_sensitivity_bps: [0, 2, 5, 10, 20, 40]

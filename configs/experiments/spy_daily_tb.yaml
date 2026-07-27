@@ -1,0 +1,120 @@
+# Daily SPY, triple-barrier labels, LGBM against the mandatory baselines (§5).
+#
+# Needs the network: `alpha data pull -c configs/experiments/spy_daily_tb.yaml`.
+
+meta:
+  name: spy-daily-triple-barrier
+  description: Daily SPY, triple-barrier labels, LGBM vs baselines.
+  seed: 20260727
+
+data:
+  provider: yahoo
+  symbols: [SPY]
+  benchmark: SPY
+  interval: 1d
+  calendar: XNYS
+  start: "2005-01-01"
+  end: "2025-12-31"
+  adjustment: unadjusted_plus_factor
+  quality:
+    max_missing_bar_pct: 2.0
+    max_zero_volume_pct: 1.0
+    fail_on_ohlc_violation: true
+
+features:
+  specs:
+    - {name: sma, params: {window: [10, 20, 50, 100]}}
+    - {name: ema, params: {window: [12, 26]}}
+    - {name: hma, params: {window: [20]}}
+    - {name: rsi, params: {window: [14]}}
+    - {name: macd, params: {fast: 12, slow: 26, signal: 9}}
+    - {name: roc, params: {window: [5, 20]}}
+    - {name: ppo, params: {fast: 12, slow: 26}}
+    - {name: atr, params: {window: [14]}}
+    - {name: realised_vol, params: {window: [10, 20, 60]}}
+    - {name: bollinger, params: {window: 20, k: 2.0}}
+    - {name: obv, params: {}}
+    - {name: vwap_dist, params: {window: [20]}}
+    - {name: cmf, params: {window: [20]}}
+    - {name: volume_ratio, params: {window: [20]}}
+    - {name: log_return, params: {window: [1, 5, 21]}}
+    - {name: rolling_stat, params: {stat: [mean, std, median, min, max], window: [5, 20, 50]}}
+    - {name: zscore, params: {window: [20, 100]}}
+    - {name: fracdiff, params: {d: 0.4, thresh: 1.0e-4}}
+  lags: [1, 2, 5, 10, 20]
+  prune:
+    method: clustered_correlation
+    threshold: 0.95
+  winsorise_quantile: 0.001
+
+labels:
+  method: triple_barrier
+  horizon_bars: 10
+  triple_barrier:
+    profit_mult: 2.0
+    loss_mult: 1.0
+    vertical_bars: 10
+    atr_window: 14
+    min_return: 0.0
+  meta_labelling: false
+  sample_weights:
+    uniqueness: true
+    time_decay: 0.75
+
+cv:
+  scheme: walkforward
+  walkforward:
+    train_bars: 1260
+    test_bars: 252
+    anchored: false
+    step_bars: 252
+  embargo_pct: 0.01
+  min_train_bars: 500
+
+models:
+  candidates: [baseline_buyhold, baseline_momentum, logistic, lightgbm, xgboost, catboost]
+  calibrate: isotonic
+  tuning:
+    enabled: true
+    n_trials: 60
+    timeout_s: 1800
+    objective: oos_net_sharpe
+    pruner: median
+
+signal:
+  long_threshold: 0.56
+  short_threshold: 0.44
+  allow_short: true
+  hysteresis: 0.02
+  sizing:
+    method: vol_target
+    target_annual_vol: 0.10
+    max_leverage: 1.0
+    kelly_cap: 0.25
+
+risk:
+  stop_loss_atr: 2.0
+  take_profit_atr: 4.0
+  trailing_stop_atr: null
+  max_drawdown_kill: 0.25
+  max_daily_loss: 0.03
+  max_concurrent_positions: 5
+
+backtest:
+  initial_capital: 1000000
+  execution_lag_bars: 1
+  fill_price: next_open
+  costs:
+    commission_bps: 0.5
+    min_commission: 1.0
+    half_spread_bps: 1.0
+    impact_model: sqrt
+    impact_coefficient: 0.1
+    max_participation: 0.05
+    borrow_bps_annual: 50.0
+    financing_bps_annual: 300.0
+  cost_sensitivity_bps: [0, 1, 2, 5, 10, 20]
+
+reporting:
+  bootstrap_samples: 1000
+  n_trials_for_dsr: auto

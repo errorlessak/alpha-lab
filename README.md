@@ -8,11 +8,12 @@ It deliberately refuses to trade. There is no broker connectivity, no order
 routing, and no recommendation of any kind. The system reports evidence; the
 judgement stays with the researcher.
 
-> **Status: Phase 0 of 14.** The runtime foundations are in place — determinism,
-> hashing, run manifests, the immutable artifact store, and the tooling gate.
-> The research pipeline arrives phase by phase; see [PROGRESS.md](PROGRESS.md).
-> This README gets its screenshots, its honest headline result, and its
-> quickstart at Phase 14 (§20).
+> **Status: Phase 1 of 14.** Runtime foundations and the data layer are in
+> place — determinism, hashing, run manifests, the immutable artifact store,
+> the config schema, point-in-time ingestion, the parquet lake, the duckdb
+> catalog, and quality reporting. Features, labels, CV, models, and the
+> backtester arrive phase by phase; see [PROGRESS.md](PROGRESS.md). This README
+> gets its screenshots and its honest headline result at Phase 14 (§20).
 
 ## Why it exists
 
@@ -52,6 +53,29 @@ uv run alpha dev scratch-run
 
 Writes a throwaway run directory with a valid manifest, exercising the full
 artifact lifecycle without touching market data.
+
+### Ingest some data
+
+The smoke config runs entirely offline, from a committed synthetic fixture:
+
+```bash
+uv run alpha data pull -c configs/experiments/smoke.yaml
+```
+
+```bash
+uv run alpha data inspect --dataset csv:SYNTH:1d
+```
+
+`inspect` prints the catalog row — including the `content_hash` a run pins
+itself to — and the quality report: bars present against bars the NYSE calendar
+says should exist, longest consecutive gap, duplicates, zero-volume bars, OHLC
+violations, and return outliers.
+
+To pull real data instead:
+
+```bash
+uv run alpha data pull -c configs/experiments/spy_daily_tb.yaml
+```
 
 ## Documentation
 

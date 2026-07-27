@@ -6,7 +6,7 @@ done when its exit criteria pass, not when the code looks finished.
 | Phase | Name | Status |
 |---|---|---|
 | 0 | Foundations | ✅ Done — 2026-07-27 |
-| 1 | Data layer | ⬜ Not started |
+| 1 | Data layer | ✅ Done — 2026-07-27 |
 | 2 | Features | ⬜ Not started |
 | 3 | Labels and weights | ⬜ Not started |
 | 4 | Cross-validation | ⬜ Not started |
@@ -126,3 +126,133 @@ done when its exit criteria pass, not when the code looks finished.
   generated `configs/schema.json`
 - `configs/experiments/smoke.yaml` and the other experiment configs
 - The `data/` lake layout and the duckdb catalog
+
+---
+
+## Phase 1 — Data layer ✅
+
+**Completed:** 2026-07-27
+**`CURRENT_PHASE`** (in `tests/conftest.py`): `0` — unchanged. Phase 1 unlocks
+no leakage test from §12.3; the first is `test_future_poison`, at Phase 2.
+**Recipes in `verify`:** `fmt lint types test test-leak` (ADR 0009)
+
+### Built
+
+- **`alphacore.config`** — the full §5 schema as frozen pydantic v2 models with
+  `extra="forbid"`, the packaged `defaults.yaml`, and a loader layering
+  `defaults → experiment YAML → ALPHA__* env → --set overrides`. Cross-field
+  validation catches the errors that would otherwise surface as nonsense
+  results: `end <= start`, a short threshold above the long one, a negative
+  feature lag, `execution_lag_bars: 0`, CPCV holding out every group.
+- **`alphacore.schemas.bars`** — the canonical bar schema in pandera, plus
+  `normalise_bars` (lowercase columns, UTC nanosecond index, default
+  `adj_factor`, sort, keep-last on duplicate timestamps) and error formatting
+  that names the failed check and the offending timestamps.
+- **`alphacore.data.calendars`** — expected-bar grids over `exchange_calendars`,
+  daily and intraday, equities and 24/7. Bars are stamped with their **left
+  edge**; the reasoning is in the module docstring and it is what makes I2
+  checkable.
+- **`alphacore.data.providers`** — the `BarProvider` protocol, a jittered
+  exponential-backoff `retry`, the `csv` provider, and the `yahoo` provider
+  (unadjusted OHLC plus a separate `adj_factor`, published history limits, lazy
+  `yfinance` import).
+- **`alphacore.data.lake`** — parquet partitioned
+  `raw/{provider}/{symbol}/{interval}/year=YYYY/`, ZSTD, with a `content_hash`
+  over the sorted file set.
+- **`alphacore.data.catalog`** — the duckdb catalog, one row per dataset,
+  pinned to UTC.
+- **`alphacore.data.quality`** — the §6.4 report: missing bars against the
+  session grid, longest consecutive gap, unexpected bars, duplicates, zero
+  volume, OHLC violations, robust return outliers, rows per year, and a
+  PASS/WARN/FAIL verdict from the configured thresholds.
+- **`alphacore.pipelines.ingest`** — fetch, validate, assess, write, catalogue.
+- **CLI** — `alpha data pull|inspect|list` and `alpha config show`.
+- **Fixtures** — `samples/SYNTH_1d.csv`, 2,516 synthetic daily bars on the real
+  NYSE grid (198 KB), plus `samples/make_fixtures.py` that regenerates it.
+- **Configs** — `smoke.yaml` (offline, CI), `spy_daily_tb.yaml`,
+  `btc_1h_meta.yaml`.
+
+### Exit criteria
+
+| Criterion | Result |
+|---|---|
+| Pull produces validated parquet + catalog row + quality report | ✅ `alpha data pull -c configs/experiments/smoke.yaml` writes 10 year-partitioned parquet files, `quality.json`, and a catalog row. 2,516 bars, quality `PASS`, `content_hash 87bc163ba30e2720c2b2e84220acc666` |
+| Schema violations raise with a useful message | ✅ e.g. `ohlc_ordering: low <= min(open, close) <= max(open, close) <= high violated: 1 failing row(s) first at 2024-01-05 00:00:00+00:00` |
+| Offline tests pass with no network | ✅ everything runs through the `csv` provider and the committed fixture; the three live Yahoo tests are `@pytest.mark.network` and deselected by default |
+| `just verify` green | ✅ 282 passed, 7 skipped, 3 deselected; coverage 96.19% |
+
+### Deviations and judgement calls
+
+1. **A Phase 0 bug fixed here.** The import-linter contract listed `duckdb`
+   among the modules `alphacore` may not import — but §3 puts `catalog.py`
+   inside `alphacore`, and duckdb is exactly what it is for. The contract was
+   wrong, not the design. Removed.
+2. **OHLC ordering lives in both the schema and the quality report.** §6.2
+   lists it as a schema check; §6.4 exposes `fail_on_ohlc_violation` as a
+   config threshold. Both cannot hold with a single strict schema, so there are
+   two: `RAW_BARS_SCHEMA` (strict, the default path) and
+   `STRUCTURAL_BARS_SCHEMA` (no ordering check), selected by
+   `validate_bars(..., check_ohlc_ordering=False)`. Only `--allow-dirty-data`
+   takes the relaxed path, and the run is stamped when it does.
+3. **No `configs/default.yaml`.** §3's tree lists both it and
+   `alphacore/config/defaults.yaml`. Two files claiming to be the baseline is a
+   drift bug, so the packaged one is the only baseline; `configs/` holds
+   experiments. Conservative reading per §0.6.
+4. **`binance` and `alphavantage` are not implemented.** §6.1 names four
+   providers; §15's Phase 1 exit criteria name two. Requesting an unimplemented
+   one raises a `ProviderError` naming the gap rather than silently falling back
+   — a run whose manifest says `binance` must not have been fed by Yahoo.
+   `btc_1h_meta.yaml` is committed anyway, because it pins the crypto calendar
+   and annualisation choices for review before the provider exists.
+5. **Fixtures are synthetic.** Committing real vendor history raises a
+   licensing question and goes stale. `SYNTH` is a seeded geometric random walk
+   with volatility clustering, aligned to real NYSE sessions — redistributable,
+   reproducible, and by construction containing no edge, which makes it the
+   right subject for §19's honest headline result.
+6. **`quality.json` is written beside the dataset**, not only returned. It sits
+   at the dataset root rather than inside a year partition, so it cannot perturb
+   `content_hash` — the hash describes the bars, not the verdict on them. There
+   is a test for exactly that.
+7. **`samples/make_fixtures.py` is a file §3's tree does not list.** Generating
+   a committed fixture from an uncommitted script would make it unreproducible.
+
+### What surprised us
+
+- **pandas 3 changed the default datetime resolution to microseconds.** §6.2
+  specifies `datetime64[ns, UTC]`. Every index is now coerced explicitly rather
+  than inheriting the pandas default, because a resolution that silently
+  changes with a dependency release is exactly the kind of thing that makes two
+  runs disagree for no visible reason.
+- **pandas refuses to `astype` an *empty* tz-naive index to a tz-aware one.**
+  Four tests failed on it at once. Empty indexes are now constructed with the
+  dtype up front. A small thing, but it only showed up because the suite tests
+  the empty case — which is the case a real pull hits when a symbol is
+  delisted.
+- **duckdb renders `TIMESTAMPTZ` in the session timezone.** The catalog read
+  back `2015-01-02T05:30:00+05:30` on a machine in Kolkata. The instant was
+  right and the string was wrong — and that string is what the API and UI
+  would have shown. Connections now `SET TimeZone = 'UTC'`, with two
+  regression tests.
+- **pandera reports a dataframe-wide check failure once per column.** One bad
+  bar in a seven-column frame was reported as "7 failing rows". Failure cases
+  are now de-duplicated by row before being counted.
+- **`exchange_calendars` returns tz-naive sessions but tz-aware intraday
+  indexes**, and `trading_index` returns an `IntervalIndex` unless
+  `intervals=False`. Both were found by probing the library rather than by
+  reading its docs, and both are pinned by tests now.
+- **The Phase 0 `.gitignore` silently excluded the entire data layer.** It
+  carried an unanchored `data/`, which matches *any* directory of that name at
+  any depth — including `packages/alphacore/src/alphacore/data/`. Ten source
+  files were quietly absent from `git status` and would have been missing from
+  the repository while every local test passed. Caught by reading the staged
+  file list rather than by any check; now anchored as `/data/` and `/runs/`,
+  with the reasoning in the file so nobody un-anchors it later.
+
+### Deferred to later phases
+
+- `binance` and `alphavantage` providers (§6.1)
+- `configs/schema.json` generated from the pydantic models for editor
+  autocomplete (§5) — wants a CLI command, arriving with the rest of the config
+  tooling
+- Multi-symbol universes: ingestion loops over symbols, but nothing downstream
+  consumes more than one yet

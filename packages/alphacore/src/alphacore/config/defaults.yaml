@@ -1,0 +1,115 @@
+# Baseline configuration. Every experiment YAML is merged on top of this.
+#
+# This file is the only baseline; there is no second copy under configs/. Two
+# files claiming to be "the defaults" is a drift bug waiting to happen.
+#
+# Resolution order (§5): this file -> experiment YAML -> ALPHA__* env vars ->
+# CLI overrides. The result is validated against alphacore.config.schema and
+# hashed into every run manifest.
+
+meta:
+  description: ""
+
+data:
+  provider: yahoo
+  interval: 1d
+  adjustment: unadjusted_plus_factor
+  quality:
+    max_missing_bar_pct: 2.0
+    max_zero_volume_pct: 1.0
+    fail_on_ohlc_violation: true
+    max_duplicate_pct: 0.0
+    extreme_return_z: 10.0
+
+features:
+  specs: []
+  lags: []
+  prune:
+    method: clustered_correlation
+    threshold: 0.95
+  winsorise_quantile: 0.001
+
+labels:
+  method: triple_barrier
+  horizon_bars: 10
+  triple_barrier:
+    profit_mult: 2.0
+    loss_mult: 1.0
+    vertical_bars: 10
+    atr_window: 14
+    min_return: 0.0
+  meta_labelling: false
+  sample_weights:
+    uniqueness: true
+    time_decay: 0.75
+  n_quantile_bins: 5
+
+cv:
+  scheme: walkforward
+  n_splits: 5
+  walkforward:
+    train_bars: 1260
+    test_bars: 252
+    anchored: false
+    step_bars: 252
+  cpcv:
+    n_groups: 6
+    n_test_groups: 2
+  embargo_pct: 0.01
+  min_train_bars: 500
+
+models:
+  candidates: [baseline_buyhold, baseline_momentum, logistic]
+  calibrate: isotonic
+  tuning:
+    enabled: true
+    n_trials: 60
+    timeout_s: 1800
+    objective: oos_net_sharpe
+    pruner: median
+
+signal:
+  long_threshold: 0.56
+  short_threshold: 0.44
+  allow_short: true
+  hysteresis: 0.02
+  sizing:
+    method: vol_target
+    fixed_fraction: 0.1
+    target_annual_vol: 0.10
+    max_leverage: 1.0
+    kelly_cap: 0.25
+
+risk:
+  stop_loss_atr: 2.0
+  take_profit_atr: 4.0
+  trailing_stop_atr: null
+  max_drawdown_kill: 0.25
+  max_daily_loss: 0.03
+  max_concurrent_positions: 5
+
+backtest:
+  initial_capital: 1000000
+  execution_lag_bars: 1
+  fill_price: next_open
+  costs:
+    commission_bps: 0.5
+    min_commission: 1.0
+    half_spread_bps: 1.0
+    impact_model: sqrt
+    impact_coefficient: 0.1
+    max_participation: 0.05
+    borrow_bps_annual: 50.0
+    financing_bps_annual: 300.0
+  cost_sensitivity_bps: [0, 1, 2, 5, 10, 20]
+
+reporting:
+  bootstrap_samples: 1000
+  n_trials_for_dsr: auto
+  export:
+    - tearsheet_json
+    - metrics_csv
+    - trades_csv
+    - predictions_parquet
+    - feature_importance_csv
+    - research_md
