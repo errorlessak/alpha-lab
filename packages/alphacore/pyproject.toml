@@ -13,6 +13,7 @@ dependencies = [
     "pyarrow>=17",
     "pydantic>=2.8",
     "pyyaml>=6.0",
+    "scikit-learn>=1.5",
     "scipy>=1.14",
     "yfinance>=0.2.40",
 ]
@@ -20,6 +21,11 @@ dependencies = [
 [project.optional-dependencies]
 # Sequence models (Phase 13). `import alphacore` must work without this.
 dl = ["torch>=2.4"]
+gbm = [
+    "catboost>=1.2",
+    "lightgbm>=4.5",
+    "xgboost>=2.1",
+]
 
 [build-system]
 requires = ["hatchling"]

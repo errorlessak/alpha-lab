@@ -76,7 +76,11 @@ convention = "google"
 max-args = 8
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["ANN", "D", "PLR2004", "ARG"]
+"tests/**" = ["ANN", "D", "PLR2004", "ARG", "N803"]
+# sklearn's interface is `fit(self, X, y)`. Renaming the parameter would break
+# every keyword call into a Pipeline and read as a different API to anyone who
+# has used scikit-learn, so the convention wins over the naming rule here.
+"packages/alphacore/src/alphacore/models/*" = ["N803", "N806"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -104,11 +108,22 @@ module = [
     "exchange_calendars.*",
     "pandas.*",
     "pandera.*",
+    "catboost.*",
+    "lightgbm.*",
     "pyarrow.*",
     "scipy.*",
+    "sklearn.*",
+    "xgboost.*",
     "yfinance.*",
 ]
 ignore_missing_imports = true
+
+# scikit-learn ships no type information, so its base classes arrive as `Any`.
+# Subclassing one is the documented way to write a transformer, and the
+# alternative is not writing one.
+[[tool.mypy.overrides]]
+module = ["alphacore.models.base"]
+disallow_subclassing_any = false
 
 # --------------------------------------------------------------------------
 # pytest

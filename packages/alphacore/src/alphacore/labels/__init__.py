@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from alphacore.errors import LabelError
+from alphacore.labels.binarise import BinariseMethod, is_binary, to_binary
 from alphacore.labels.horizon import horizon_quantile, horizon_return, horizon_sign
 from alphacore.labels.meta import meta_label
 from alphacore.labels.triple_barrier import triple_barrier
@@ -26,14 +27,17 @@ if TYPE_CHECKING:
     from alphacore.config.schema import LabelsConfig
 
 __all__ = [
+    "BinariseMethod",
     "build_labels",
     "concurrency",
     "horizon_quantile",
     "horizon_return",
     "horizon_sign",
+    "is_binary",
     "meta_label",
     "sample_weights",
     "time_decay_weights",
+    "to_binary",
     "triple_barrier",
     "uniqueness_weights",
     "validate_labels",

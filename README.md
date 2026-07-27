@@ -8,12 +8,13 @@ It deliberately refuses to trade. There is no broker connectivity, no order
 routing, and no recommendation of any kind. The system reports evidence; the
 judgement stays with the researcher.
 
-> **Status: Phase 4 of 14.** In place: determinism and hashing, run manifests,
+> **Status: Phase 5 of 14.** In place: determinism and hashing, run manifests,
 > the immutable artifact store, the config schema, point-in-time ingestion, the
 > parquet lake, the duckdb catalog, quality reporting, 27 in-house causal
 > feature primitives with a leak-proof registry, four labelling methods with
-> uniqueness and time-decay sample weights, and purged cross-validation
-> (walk-forward, purged k-fold, CPCV). Models and the backtester arrive phase by
+> uniqueness and time-decay sample weights, purged cross-validation
+> (walk-forward, purged k-fold, CPCV), and the out-of-fold leaderboard with its
+> mandatory baselines. The backtester and the honesty metrics arrive phase by
 > phase; see [PROGRESS.md](PROGRESS.md). This README gets its screenshots and
 > its honest headline result at Phase 14 (§20).
 
@@ -37,7 +38,9 @@ names a label column as an input cannot be registered. Quantile label edges
 cannot be fitted without an explicit training mask. Correlation pruning cannot
 run on the full sample. Every cross-validation fold is purged and embargoed
 before it is handed back, and `train_test_split` and plain `KFold` fail the
-build if they appear in library code. Each raises rather than warns.
+build if they appear in library code. Every leaderboard carries a
+shuffled-label row, so there is always a scale on the axis. Each raises rather
+than warns.
 
 The most valuable output this repository can produce is a run where the model
 does **not** find an edge, reported honestly, with the diagnostics that prove

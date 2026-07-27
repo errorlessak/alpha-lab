@@ -10,7 +10,7 @@ done when its exit criteria pass, not when the code looks finished.
 | 2 | Features | ✅ Done — 2026-07-27 |
 | 3 | Labels and weights | ✅ Done — 2026-07-27 |
 | 4 | Cross-validation | ✅ Done — 2026-07-27 |
-| 5 | Models and leaderboard | ⬜ Not started |
+| 5 | Models and leaderboard | ✅ Done — 2026-07-27 |
 | 6 | Signals and risk | ⬜ Not started |
 | 7 | Backtest engine | ⬜ Not started |
 | 8 | Metrics and tearsheet | ⬜ Not started |
@@ -493,3 +493,97 @@ watched fail before a line of implementation existed.
 
 - Wiring folds into a run directory as `folds.json` — Phase 10
 - Per-fold metrics on the `Split` record — Phase 8, once metrics exist
+
+---
+
+## Phase 5 — Models and leaderboard ✅
+
+**Completed:** 2026-07-27
+**`CURRENT_PHASE`:** `5` — `test_pipeline_fit_on_train_only` and
+`test_shuffled_labels_have_no_edge` are now required
+
+### Built
+
+- **`models/protocol.py`** — the `AlphaModel` contract from §10.1.
+- **`models/base.py`** — the shared sklearn `Pipeline` (winsoriser, scaler,
+  estimator) and inner-split calibration. I3 and §10.2 are enforced once here
+  rather than four times across the adapters.
+- **`models/linear.py`** — logistic and elastic net. Always on the leaderboard:
+  a linear model beating the GBM is important information.
+- **`models/trees.py`** — LightGBM, XGBoost, CatBoost behind the optional `gbm`
+  extra, lazily imported, single-threaded and seeded for determinism.
+- **`models/baselines.py`** — all five mandatory baselines, including the
+  shuffled-label wrapper that permutes *inside* the fold.
+- **`models/oof.py`** — out-of-fold assembly.
+- **`models/leaderboard.py`** — the economic leaderboard and its schema.
+- **`eval/classification.py`** — accuracy, AUC, Brier, log-loss, and the
+  information coefficient with its t-statistic. Nothing returns `NaN`.
+- **`labels/binarise.py`** — the explicit three-class-to-binary reduction (see
+  below).
+
+### Exit criteria
+
+| Criterion | Result |
+|---|---|
+| `test_shuffled_labels_have_no_edge` | ✅ block-bootstrap IC interval contains zero, with a control proving the harness detects a real edge |
+| Every model trains on the smoke config under 60s | ✅ `test_every_model_scores_within_the_time_budget` — all six models, timed |
+| Leaderboard JSON validates against the schema | ✅ `LeaderboardRow` + `validate_leaderboard` |
+| `just verify` green | ✅ 638 passed, 2 skipped, coverage 89.94%; leakage suite 61 passed |
+
+### Deviations and judgement calls
+
+1. **Economic columns are `None`, not placeholders.** §10.1 ranks by
+   out-of-fold net-of-cost Sharpe with a DSR haircut. There is no cost model
+   until Phase 7, so `oos_net_sharpe`, `dsr`, `psr`, `break_even_bps` and
+   `max_drawdown` are null and every row carries a `NO_BACKTEST` flag. Ranking
+   falls back to the IC t-statistic — deliberately *not* accuracy (ADR 0007).
+   Filling those columns with a number would guarantee someone reads it.
+2. **Three-class labels must be reduced explicitly.** Triple-barrier emits
+   `{-1, 0, +1}`; every model here is binary. Rather than collapsing silently,
+   `alphacore.labels.to_binary` offers `direction` (keep `{-1,+1}`, drop
+   expiries) and `touch` (profit barrier hit or not), and the OOF loop raises a
+   message naming both if handed multiclass. The choice changes what "accuracy"
+   means, so the library does not make it for you.
+3. **GBMs live in an optional `gbm` extra**, for the reason ADR 0003 gives for
+   torch: `import alphacore` should not drag three compiled boosting libraries
+   into a process that only wants to read a tearsheet. All three are installed
+   locally and fully tested.
+4. **`n_jobs=1` on every GBM.** Multi-threaded histogram building sums
+   gradients in a nondeterministic order, so the same seed gives different
+   trees run to run — which breaks byte-identical artifacts (I8). The cost is
+   speed; the alternative is an unreproducible run.
+5. **`N803`/`N806` suppressed inside `models/`.** sklearn's interface is
+   `fit(self, X, y)`; renaming would break keyword calls into a `Pipeline` and
+   read as a different API to anyone who has used scikit-learn.
+
+### What surprised us
+
+- **`test_pipeline_fit_on_train_only` was passing vacuously.** The spy recorded
+  `X.index` on every fitted transform — but only the *first* pipeline step
+  receives a DataFrame. The scaler gets the winsoriser's output, a bare numpy
+  array with no index, so the recorded index was empty and every containment
+  check passed against nothing. Rewritten: the winsoriser is checked by index,
+  the scaler by row count, and both spies now assert they observed something.
+  A sibling test — `test_the_spy_would_catch_a_global_fit` — performs the leak
+  deliberately and requires both spies to trip.
+- **The first version of that test also flagged legitimate behaviour.** It
+  compared each fit against the union of *every* fold's test rows, but in a
+  walk-forward, fold 1 trains on fold 0's test period by design. The check is
+  now per fold.
+- **sklearn 1.8 deprecated `LogisticRegression(penalty=...)`.** The mix is
+  expressed by `l1_ratio` alone now. Caught because the adapter turns estimator
+  failures into `ModelError` rather than letting a warning pass.
+- **The baselines needed a `_CONFIDENT = 0.99` rather than 1.0.** A probability
+  of exactly one produces an infinite log-loss and makes the whole column
+  unreadable on the leaderboard.
+- **A constant prediction breaks rank metrics, and that is fine.** Every
+  deterministic baseline produces one, so the IC is undefined. The row records
+  `None` and a `CONSTANT_PREDICTION` flag rather than inventing a number.
+
+### Deferred to later phases
+
+- Optuna tuning against the out-of-fold economic objective (§10.4) — Phase 10,
+  since the objective needs the backtester
+- Mean Decrease Accuracy and clustered feature importance (§7.3) — Phase 9
+- Reliability diagrams and the calibration curve artifact (§10.2) — Phase 8
+- Ensembles (`models/ensemble.py`) and sequence models — Phases 5+/13

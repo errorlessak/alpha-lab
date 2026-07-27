@@ -13,9 +13,11 @@ from alphacore.labels import (
     horizon_quantile,
     horizon_return,
     horizon_sign,
+    is_binary,
     meta_label,
     sample_weights,
     time_decay_weights,
+    to_binary,
     triple_barrier,
     uniqueness_weights,
 )
@@ -372,6 +374,73 @@ def test_sample_weights_of_all_ones_when_both_are_disabled(walk):
     labels = triple_barrier(walk, profit_mult=2.0, loss_mult=1.0, vertical_bars=10, atr_window=14)
     config = SampleWeightsConfig(uniqueness=False, time_decay=1.0)
     np.testing.assert_allclose(sample_weights(labels, walk.index, config), 1.0, atol=1e-12)
+
+
+# --- binarising ------------------------------------------------------------
+
+
+def test_direction_method_drops_the_neutral_class(walk):
+    base = triple_barrier(walk, profit_mult=2.0, loss_mult=1.0, vertical_bars=10, atr_window=14)
+    binary = to_binary(base, method="direction")
+
+    assert set(binary["label"].unique()) == {0, 1}
+    assert len(binary) == int((base["label"] != 0).sum())
+
+
+def test_direction_method_maps_the_barriers_the_obvious_way(walk):
+    base = triple_barrier(walk, profit_mult=2.0, loss_mult=1.0, vertical_bars=10, atr_window=14)
+    binary = to_binary(base, method="direction")
+    original = base.loc[binary.index, "label"]
+    assert (binary.loc[original == 1, "label"] == 1).all()
+    assert (binary.loc[original == -1, "label"] == 0).all()
+
+
+def test_touch_method_keeps_every_row(walk):
+    base = triple_barrier(walk, profit_mult=2.0, loss_mult=1.0, vertical_bars=10, atr_window=14)
+    binary = to_binary(base, method="touch")
+
+    assert len(binary) == len(base)
+    # An expiry and a loss are the same outcome to a take/skip decision.
+    assert (binary.loc[base["label"] != 1, "label"] == 0).all()
+
+
+def test_binarising_records_which_reduction_was_used(walk):
+    base = triple_barrier(walk, profit_mult=2.0, loss_mult=1.0, vertical_bars=10, atr_window=14)
+    assert to_binary(base, method="touch").attrs["binarised"] == "touch"
+
+
+def test_binarising_recomputes_the_class_balance(walk):
+    base = triple_barrier(walk, profit_mult=2.0, loss_mult=1.0, vertical_bars=10, atr_window=14)
+    balance = to_binary(base, method="direction").attrs["class_balance"]
+    assert set(balance) == {"0", "1"}
+    assert sum(balance.values()) == pytest.approx(1.0)
+
+
+def test_binarising_preserves_the_spans_the_purger_needs(walk):
+    base = triple_barrier(walk, profit_mult=2.0, loss_mult=1.0, vertical_bars=10, atr_window=14)
+    binary = to_binary(base, method="direction")
+    assert (binary["t_end"] == base.loc[binary.index, "t_end"]).all()
+    validate_labels(binary)
+
+
+def test_an_unknown_binarise_method_is_rejected(walk):
+    base = triple_barrier(walk, profit_mult=2.0, loss_mult=1.0, vertical_bars=10, atr_window=14)
+    with pytest.raises(LabelError, match="Unknown binarise method"):
+        to_binary(base, method="magic")
+
+
+def test_binarising_a_single_class_frame_is_rejected():
+    bars = make_bars([100.0] * 60)
+    flat = triple_barrier(bars, profit_mult=5.0, loss_mult=5.0, vertical_bars=5, atr_window=5)
+    # Every label is a vertical expiry, so 'direction' removes everything.
+    with pytest.raises(LabelError, match="removed every observation"):
+        to_binary(flat, method="direction")
+
+
+def test_is_binary_detects_the_three_class_case(walk):
+    base = triple_barrier(walk, profit_mult=2.0, loss_mult=1.0, vertical_bars=10, atr_window=14)
+    assert not is_binary(base)
+    assert is_binary(to_binary(base, method="touch"))
 
 
 # --- build_labels ----------------------------------------------------------

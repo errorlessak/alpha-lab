@@ -19,7 +19,7 @@ from alphacore.runtime import ArtifactStore, configure_logging
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-CURRENT_PHASE = 4
+CURRENT_PHASE = 5
 """Highest fully completed phase from ARCHITECTURE.md §15. Bump only when that
 phase's exit criteria pass."""
 
@@ -46,7 +46,11 @@ def frozen_now() -> dt.datetime:
     return FROZEN_NOW
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def repo_root() -> Path:
-    """Absolute path to the repository root."""
+    """Absolute path to the repository root.
+
+    Session-scoped: it is a constant, and module-scoped fixtures that need it
+    cannot depend on a function-scoped one.
+    """
     return Path(__file__).resolve().parent.parent
