@@ -18,6 +18,7 @@ differently, which is exactly why it is written down.
 | [0007](0007-economic-leaderboard.md) | Out-of-fold economic leaderboard instead of an accuracy leaderboard | Accepted |
 | 0008 | In-process job runner instead of Celery / Redis | Reserved — Phase 11 |
 | [0009](0009-phase-gated-verify.md) | `just verify` gains `smoke` and `e2e` as their phases land | Accepted |
+| [0010](0010-optuna-behind-an-extra.md) | Optuna behind a `tune` extra, imported lazily | Accepted |
 
 ## A numbering conflict, resolved
 

@@ -37,7 +37,9 @@ __all__ = [
     "information_ratio",
     "max_drawdown",
     "max_drawdown_duration",
+    "net_sharpe",
     "return_metrics",
+    "rolling_sharpe",
     "sharpe_ratio",
     "sortino_ratio",
     "trade_metrics",
@@ -163,6 +165,102 @@ def sharpe_ratio(
         )
         raise EvaluationError(msg)
     return float(values.mean() / deviation * np.sqrt(periods_per_year))
+
+
+def net_sharpe(returns: NDArray[np.float64], *, periods_per_year: float) -> float:
+    """Sharpe of a strategy's net returns, reading a flat curve as zero.
+
+    Identical to `sharpe_ratio` except in one case: a series that never moved.
+    That strategy earned nothing and risked nothing, so `0/0` is genuinely zero
+    in economic terms — it is what a cost sweep produces at the level where
+    trading stops being worth it, and the break-even curve needs that point to
+    exist rather than to raise.
+
+    A **constant non-zero** return still raises. An infinite Sharpe is a bug
+    upstream, and this function must not be the place it gets smoothed over.
+
+    Args:
+        returns: Per-period simple returns.
+        periods_per_year: Bars per year.
+
+    Returns:
+        The Sharpe ratio, or 0.0 for a series that never moved.
+
+    Raises:
+        EvaluationError: If the series is invalid, or has constant non-zero
+            returns.
+    """
+    values = np.asarray(returns, dtype=float)
+    if values.size and np.allclose(values, 0.0):
+        return 0.0
+    return sharpe_ratio(values, periods_per_year=periods_per_year)
+
+
+def rolling_sharpe(returns: pd.Series, *, window: int, periods_per_year: float) -> pd.Series:
+    """Sharpe ratio over a trailing window, evaluated at each window end (§11.2).
+
+    `SR_t = mean(r[t-n+1..t]) / std(r[t-n+1..t]) * sqrt(periods_per_year)`
+
+    The result is deliberately shorter than the input rather than padded: the
+    first `window - 1` bars have no trailing window, and a padded zero would
+    read on a chart as a period of no risk-adjusted return rather than as a
+    period with no measurement.
+
+    A window in which nothing happened — a stretch spent flat, or one after a
+    kill switch tripped — scores 0.0, on the same reasoning as `net_sharpe`:
+    the strategy earned nothing and risked nothing over it. A window with a
+    constant *non-zero* return raises, because an infinite Sharpe is a bug.
+    Nothing here returns `NaN` (§0.7).
+
+    Args:
+        returns: Per-period simple returns, indexed by timestamp.
+        window: Trailing window length in bars, e.g. 63 or 252.
+        periods_per_year: Bars per year.
+
+    Returns:
+        A series of Sharpe ratios indexed by the timestamp closing each window.
+
+    Raises:
+        EvaluationError: If the window is shorter than two bars, longer than
+            the sample, or any window has a constant non-zero return.
+    """
+    if window < _MIN_OBSERVATIONS:
+        msg = f"A rolling Sharpe needs a window of at least {_MIN_OBSERVATIONS} bars, got {window}."
+        raise EvaluationError(msg)
+    if len(returns) < window:
+        msg = (
+            f"Cannot compute a {window}-bar rolling Sharpe over a {len(returns)}-bar "
+            "sample. Shorten the window or lengthen the sample."
+        )
+        raise EvaluationError(msg)
+
+    values = _check(returns.to_numpy(dtype=float))
+    series = pd.Series(values, index=returns.index)
+    mean = series.rolling(window).mean()
+    deviation = series.rolling(window).std(ddof=1)
+    scale = series.abs().rolling(window).max()
+
+    complete = deviation.notna()
+    flat = pd.Series(
+        [
+            _is_zero(float(d), scale=float(s)) if pd.notna(d) else False
+            for d, s in zip(deviation.to_numpy(), scale.to_numpy(), strict=True)
+        ],
+        index=series.index,
+    )
+    # A flat window has zero dispersion *and* zero magnitude. Zero dispersion
+    # around a non-zero mean is the pathological case, and it is not smoothed.
+    moving = flat & (scale.fillna(0.0).abs() > 0)
+    if bool(moving.any()):
+        msg = (
+            f"{int(moving.sum())} rolling {window}-bar windows have a constant non-zero "
+            "return, which implies an infinite Sharpe. That is a bug upstream, not a result."
+        )
+        raise EvaluationError(msg)
+
+    result = (mean / deviation.where(~flat) * np.sqrt(periods_per_year)).where(~flat, 0.0)[complete]
+    result.name = f"rolling_sharpe_{window}"
+    return result
 
 
 def sortino_ratio(

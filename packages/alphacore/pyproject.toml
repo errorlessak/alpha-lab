@@ -26,6 +26,10 @@ gbm = [
     "lightgbm>=4.5",
     "xgboost>=2.1",
 ]
+# Hyperparameter search (§10.4). Optuna drags in SQLAlchemy, alembic and Mako,
+# none of which a run without tuning ever touches, so it stays behind an extra
+# and is imported lazily (ADR 0010).
+tune = ["optuna>=4.0"]
 
 [build-system]
 requires = ["hatchling"]

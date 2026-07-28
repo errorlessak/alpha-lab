@@ -49,7 +49,8 @@ test:
 test-leak:
     uv run pytest tests/leakage -x
 
-# End-to-end smoke run. Wired up in Phase 10; see ADR 0009.
+# End-to-end smoke run — the §15 Phase 10 exit criterion and the integration
+# gate for every phase before it (ADR 0009).
 smoke:
     uv run alpha run -c configs/experiments/smoke.yaml
 
@@ -57,11 +58,11 @@ smoke:
 e2e:
     npm --prefix web exec playwright test
 
-# The gate. `smoke` and `e2e` join this at Phases 10 and 12 (ADR 0009).
-verify: fmt lint types test test-leak
+# The gate. `smoke` joined it at Phase 10; `e2e` joins at Phase 12 (ADR 0009).
+verify: fmt lint types test test-leak smoke
 
 # The gate in its final form, for use once every phase has landed.
-verify-full: verify smoke e2e
+verify-full: verify e2e
 
 # Regenerate the feature data dictionary from the registry (§7.1).
 # The command writes the file itself rather than relying on shell redirection,

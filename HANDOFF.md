@@ -49,6 +49,14 @@ Set-Location "C:\dev\alpha-lab"
 $env:PYTHONHASHSEED="0"
 ```
 
+Extras are **not** installed by `just setup`. The full suite needs them:
+
+```powershell
+uv sync --all-packages --extra gbm --extra tune
+```
+
+`tune` is optuna (ADR 0010); without it the tuning tests skip rather than fail.
+
 - Python **3.12.13**, uv-managed, at
   `C:\Users\akshy\AppData\Roaming\uv\python\cpython-3.12.13-windows-x86_64-none\`.
   The system Python is 3.14 — do not use it.
@@ -84,9 +92,9 @@ $env:PYTHONHASHSEED="0"
 just verify
 ```
 
-The gate. Runs `fmt lint types test test-leak`. **Must be green before a phase
-is called done.** Per ADR 0009, `smoke` joins it at Phase 10 and `e2e` at
-Phase 12; `verify-full` already names the final seven-recipe form.
+The gate. Runs `fmt lint types test test-leak smoke`. **Must be green before a
+phase is called done.** Per ADR 0009, `smoke` joined at Phase 10 and `e2e` joins
+at Phase 12; `verify-full` already names the final form.
 
 ```bash
 just docs
@@ -107,14 +115,24 @@ uv run alpha data pull -c configs/experiments/smoke.yaml
 
 Offline ingest from the committed fixture.
 
+```bash
+uv run alpha run -c configs/experiments/smoke.yaml
+```
+
+The golden path. Ingests, builds, trains, backtests, reports, and writes a
+complete run directory under `runs/`. Takes about ten seconds.
+
 Other CLI: `alpha version`, `alpha dev scratch-run`, `alpha data inspect
---dataset csv:SYNTH:1d`, `alpha data list`, `alpha config show -c <yaml>`.
+--dataset csv:SYNTH:1d`, `alpha data list`, `alpha config show -c <yaml>`,
+`alpha features build -c <yaml>`, `alpha train -c <yaml>`,
+`alpha backtest -c <yaml>`, `alpha report <run-id>`,
+`alpha runs list|show|compare`.
 
 ---
 
 ## 5. State of the build
 
-**Phases 0–9 complete. Phase 10 is next.**
+**Phases 0–10 complete. Phase 11 is next.**
 
 | Phase | Status |
 |---|---|
@@ -128,14 +146,15 @@ Other CLI: `alpha version`, `alpha dev scratch-run`, `alpha data inspect
 | 7 Backtest engine | ✅ |
 | 8 Metrics and tearsheet | ✅ |
 | 9 Explainability | ✅ |
-| **10 Pipelines and CLI** | **⬜ next** |
-| 11 API service | ⬜ |
+| 10 Pipelines and CLI | ✅ |
+| **11 API service** | **⬜ next** |
 | 12 Web app | ⬜ |
 | 13 Sequence models (optional) | ⬜ |
 | 14 Packaging and docs | ⬜ |
 
-Last `just verify`: **864 passed, 3 deselected, coverage 89.75%**, leakage suite
-**71 passed, 0 skipped**, mypy strict clean on 81 source files.
+Last `just verify`: **926 passed, 3 deselected, coverage 89.96%**, leakage suite
+green, mypy strict clean on 86 source files, and `just smoke` completing the
+golden path end to end.
 
 Commits, newest first:
 
@@ -166,10 +185,15 @@ backtest/   costs, portfolio, ledger, engine, reference
 eval/       classification, financial, deflated, bootstrap, pbo
 report/     tearsheet, exporters, research_md
 explain/    shap_runner
-pipelines/  ingest  ← only ingest so far; the rest is Phase 10
+pipelines/  ingest, build_features, train, backtest, tune, full_run
 ```
 
 `alphaservice` has `cli.py` only. `api/` and `jobs/` are Phase 11.
+
+The pipeline stages compose in one direction: `build_features` produces a
+`FeatureSet`; `train` turns it into a `TrainingResult` (leaderboard, per-model
+OOF predictions, folds, backtests); `full_run` writes those into the §16 run
+directory. `alpha run` is `full_run.run_experiment` and nothing else.
 
 ---
 
@@ -224,8 +248,8 @@ All are recorded in `PROGRESS.md` with reasoning. The short list:
    0001–0007; §14.2 separately calls the job runner "ADR 0006". Kept §2's
    explicit range; the job-runner ADR is **reserved as 0008** for Phase 11.
    ADR 0009 is the phase-gated `verify`.
-2. **`verify` excludes `smoke` until Phase 10, `e2e` until Phase 12** (ADR
-   0009).
+2. **`verify` excluded `smoke` until Phase 10, and excludes `e2e` until Phase
+   12** (ADR 0009). `smoke` is in the gate now.
 3. **No `configs/default.yaml`.** The packaged
    `alphacore/config/defaults.yaml` is the only baseline; two files claiming to
    be the defaults is a drift bug.
@@ -251,57 +275,61 @@ All are recorded in `PROGRESS.md` with reasoning. The short list:
    implementation error but not a misreading of the formula.** If the paper's
    worked figures can be supplied, add them as a golden fixture in
    `tests/golden/`.
+10. **Models persist as `model.pkl`**, not the `model.{txt,json,pt}` §16 names.
+    The pickled object is the whole pipeline — winsoriser, scaler, estimator,
+    calibrator — and a booster saved without its calibrator produces scores
+    that are not probabilities.
+11. **`alpha features build|train|backtest` write nothing.** Only `alpha run`
+    produces a run directory. A directory with `features.json` and no
+    `tearsheet.json` would satisfy §16's filenames but not its meaning.
+12. **Optuna lives behind the `tune` extra** and is imported lazily (ADR 0010).
 
 ---
 
-## 8. Known gaps entering Phase 10
+## 8. Known gaps entering Phase 11
 
-- `pipelines/` has **only** `ingest.py`. `build_features.py`, `train.py`,
-  `backtest.py`, `full_run.py` do not exist.
-- Nothing yet writes `tearsheet.json`, `folds.json`, `features.json`,
-  `research.md`, or the parquet series into a run directory. The pieces all
-  exist (`report/exporters.py`, `report/tearsheet.py`, `cv/splits.py`
-  serialisation) but are unwired.
-- The leaderboard's **economic columns are `None`** and every row carries a
-  `NO_BACKTEST` flag. Phase 10 wires the backtester in and fills
-  `oos_net_sharpe`, `sharpe_ci`, `dsr`, `psr`, `break_even_bps`,
-  `max_drawdown`; ranking then switches from IC t-stat to net Sharpe.
-- **Optuna tuning (§10.4) is not built.** The objective must be out-of-fold and
-  economic — run the inner walk-forward, generate signals, run the costed
-  backtest, return net Sharpe. `n_trials` must flow into the DSR haircut
-  automatically.
+- `alphaservice` has **only** `cli.py`. `api/` and `jobs/` do not exist; the
+  job-runner ADR is reserved as **0008**.
 - `fill_price: next_vwap` is accepted by config but the engine always fills at
   the open.
-- The backtest engine is **single-symbol**.
+- The backtest engine is **single-symbol**. `primary_symbol` raises on a config
+  naming more than one rather than silently trading the first.
 - Clustered MDA (§7.3) and reliability diagrams (§10.2) are not built.
+- **`shap_summary.parquet` only appears when the selected model is a tree
+  model.** The smoke config selects `baseline_buyhold`, so the smoke run has no
+  SHAP artifact. Any API contract test that requires one needs a config whose
+  winner is a GBM.
+- **The trade blotter counts a partial reduction as a completed trade.** That
+  is a deliberate definition (each row is one realising event, with its own
+  entry price and P&L), but it means `n_trades` under `vol_target` sizing is a
+  count of realisations, not of round trips. Worth stating plainly wherever the
+  UI shows it.
 
 ---
 
-## 9. Phase 10 — what to do next
+## 9. Phase 11 — what to do next
 
 From §15:
 
-> **Deliverables:** `alpha data pull|inspect`, `alpha features build`,
-> `alpha train`, `alpha backtest`, `alpha run` (full golden path),
-> `alpha report`, `alpha runs list|show|compare`. Rich console output.
+> **Deliverables:** every endpoint in §14.1, job runner, SSE, OpenAPI,
+> generated TS client.
 >
-> **Exit:** `alpha run -c configs/experiments/smoke.yaml` completes end to end
-> and writes a complete run directory. **This is the integration gate for
-> everything before it.**
+> **Exit:** schemathesis contract tests pass; a run created via `POST /jobs` is
+> fully readable through the API; SSE streams logs in real time.
 
-The run directory contract is in §16 of `ARCHITECTURE.md` — `manifest.json`,
-`config.resolved.yaml`, `tearsheet.json`, `quality.json`, `features.json`,
-`folds.json`, the parquet series, `leaderboard.csv`, `research.md`,
-`models/`, `logs.jsonl`.
+§14.1 has the endpoint list and §14.2 the job runner. Two things Phase 10 built
+that Phase 11 should lean on rather than duplicate:
 
-Also due at Phase 10: add `smoke` to the `verify` recipe (ADR 0009 says so),
-and add §12.4's determinism test — run `smoke.yaml` twice, in the same session
-and in a fresh subprocess, and assert `tearsheet.json` is byte-identical after
-stripping `created_at`, `duration_s` and `host`.
+- **`tearsheet.json` is the only result the API reads** (§11.4). `validate_tearsheet`
+  already turns a malformed artifact into an `EvaluationError`, which is the
+  right thing to surface as a 422 rather than a 500.
+- **`run_experiment` is already the whole job.** The job runner wraps it; it
+  should not reassemble the stages itself. `RunSummary` carries everything a
+  job record needs, and `run_context` already finalises a crashed run as
+  `failed` with its traceback.
 
-`tests/integration/test_smoke_leaderboard.py` already does bars → features →
-labels → folds → leaderboard in-process. It is the closest thing to a template
-for `pipelines/full_run.py`.
+`report/exporters.lttb_downsample` exists for the server-side downsampling
+§14.1 asks for and has never had a caller.
 
 ---
 

@@ -72,6 +72,9 @@ class BacktestResult:
         n_partial_fills: Fills truncated by the participation cap.
         kill_switch: The kill-switch record, if one tripped.
         warnings: Flags for the tearsheet, e.g. `UNCOSTED`.
+        fills: The fill-by-fill event log, written to `ledger.parquet` (§16).
+            Kept alongside `trades` so the round-trip pairing can be checked
+            against the events it was derived from.
     """
 
     equity: pd.DataFrame
@@ -82,6 +85,7 @@ class BacktestResult:
     n_partial_fills: int
     kill_switch: KillSwitch | None
     warnings: tuple[str, ...] = field(default_factory=tuple)
+    fills: pd.DataFrame = field(default_factory=pd.DataFrame)
 
     def summary(self) -> dict[str, Any]:
         """Render a JSON-compatible summary for the tearsheet.
@@ -318,6 +322,7 @@ def run_backtest(  # noqa: PLR0912, PLR0915 - the event loop is one readable seq
         n_partial_fills=ledger.n_partial_fills,
         kill_switch=limiter.kill_switch,
         warnings=tuple(sorted(warnings)),
+        fills=ledger.fill_log(),
     )
 
 

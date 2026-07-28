@@ -14,8 +14,10 @@ from alphacore.models.baselines import (
 from alphacore.models.leaderboard import (
     ECONOMIC_COLUMNS,
     LeaderboardRow,
+    attach_economics,
     build_leaderboard,
     leaderboard_row,
+    score_models,
     validate_leaderboard,
 )
 from alphacore.models.linear import make_elasticnet, make_logistic
@@ -39,6 +41,7 @@ __all__ = [
     "ShuffledLabelModel",
     "Task",
     "Winsoriser",
+    "attach_economics",
     "build_leaderboard",
     "build_model",
     "fit_predict_oof",
@@ -50,5 +53,6 @@ __all__ = [
     "make_preprocessor",
     "make_xgboost",
     "registered_models",
+    "score_models",
     "validate_leaderboard",
 ]

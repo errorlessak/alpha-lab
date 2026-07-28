@@ -23,6 +23,7 @@ __all__ = [
     "LabelError",
     "LeakageError",
     "ModelError",
+    "PipelineError",
     "ProviderError",
     "RunNotFoundError",
     "SchemaValidationError",
@@ -109,6 +110,16 @@ class ModelError(AlphaError):
 
 class BacktestError(AlphaError):
     """The backtest engine reached an inconsistent state."""
+
+
+class PipelineError(AlphaError):
+    """A pipeline could not compose its stages into a run.
+
+    Distinct from the stage-level errors on purpose: `FeatureError` says a
+    feature is wrong, `PipelineError` says the stages cannot be joined — a
+    config asking for something the assembled pipeline does not yet support, or
+    two stages whose outputs no longer align.
+    """
 
 
 class EvaluationError(AlphaError):

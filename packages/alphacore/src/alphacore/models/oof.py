@@ -25,11 +25,13 @@ import numpy as np
 import pandas as pd
 
 from alphacore.errors import ModelError
+from alphacore.features.selection import prune_correlated
 from alphacore.runtime.logging import logger
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from alphacore.config.schema import PruneConfig
     from alphacore.cv import Split
     from alphacore.models.protocol import AlphaModel
 
@@ -48,12 +50,17 @@ class OOFPredictions:
             `label`, `realised_return`, `weight`, and `fold`.
         n_folds: How many folds contributed.
         importances: Per-fold feature importance, when the model reports it.
+        selected_features: The columns that survived pruning in each fold, in
+            fold order. Empty when no pruning was applied. Recorded per fold
+            because the selection is *fitted*, so it legitimately differs
+            between folds — and a single global count would hide that.
     """
 
     model: str
     frame: pd.DataFrame
     n_folds: int
     importances: list[pd.Series] = field(default_factory=list)
+    selected_features: list[tuple[str, ...]] = field(default_factory=list)
 
     @property
     def mean_importance(self) -> pd.Series | None:
@@ -73,6 +80,8 @@ def fit_predict_oof(
     features: pd.DataFrame,
     labels: pd.DataFrame,
     splits: Sequence[Split],
+    *,
+    prune: PruneConfig | None = None,
 ) -> OOFPredictions:
     """Fit a model on every fold and collect its test-fold predictions.
 
@@ -83,6 +92,11 @@ def fit_predict_oof(
         features: Feature frame, aligned to `labels`.
         labels: Label frame, carrying `label`, `realised_return` and `weight`.
         splits: Purged folds from `alphacore.cv`.
+        prune: Correlation pruning, applied **inside each fold** with that
+            fold's training rows as the fit mask. Passing `None` skips it.
+            Pruning on the full sample is banned (§4, I3) and
+            `prune_correlated` raises if asked to, so this is the only place
+            the `features.prune` section can legitimately take effect.
 
     Returns:
         The stacked out-of-fold predictions.
@@ -90,6 +104,7 @@ def fit_predict_oof(
     Raises:
         ModelError: If features and labels are misaligned, there are no folds,
             or a fold's training set is empty.
+        LeakageError: If pruning is requested and the fit mask cannot be built.
     """
     if not features.index.equals(labels.index):
         msg = (
@@ -105,6 +120,7 @@ def fit_predict_oof(
     weights = labels["weight"].to_numpy(dtype=float)
     pieces: list[pd.DataFrame] = []
     importances: list[pd.Series] = []
+    selected: list[tuple[str, ...]] = []
 
     for split in splits:
         if split.train_idx.size == 0:
@@ -114,8 +130,11 @@ def fit_predict_oof(
             )
             raise ModelError(msg)
 
-        train_X = features.iloc[split.train_idx]
-        test_X = features.iloc[split.test_idx]
+        fold_features = _prune_fold(features, split, prune)
+        if prune is not None and prune.method != "none":
+            selected.append(tuple(str(c) for c in fold_features.columns))
+        train_X = fold_features.iloc[split.train_idx]
+        test_X = fold_features.iloc[split.test_idx]
         fitted = _fit_fold(model, train_X, y.iloc[split.train_idx], weights[split.train_idx])
 
         proba = np.asarray(fitted.predict_proba(test_X), dtype=float)[:, 1]
@@ -153,7 +172,35 @@ def fit_predict_oof(
         frame=frame,
         n_folds=len(splits),
         importances=importances,
+        selected_features=selected,
     )
+
+
+def _prune_fold(features: pd.DataFrame, split: Split, prune: PruneConfig | None) -> pd.DataFrame:
+    """Apply correlation pruning fitted on one fold's training rows.
+
+    Args:
+        features: The full feature frame.
+        split: The fold whose training rows the pruning may see.
+        prune: The `features.prune` section, or None to skip.
+
+    Returns:
+        The frame with correlated columns removed, or the frame unchanged when
+        pruning is disabled.
+
+    Raises:
+        LeakageError: If `prune_correlated` rejects the mask.
+    """
+    if prune is None or prune.method == "none":
+        return features
+    mask = np.zeros(len(features), dtype=bool)
+    mask[split.train_idx] = True
+    pruned, dropped = prune_correlated(features, prune, fit_mask=mask)
+    if dropped:
+        logger.bind(phase="train").debug(
+            "fold {}: pruned {} of {} columns", split.fold, len(dropped), features.shape[1]
+        )
+    return pruned
 
 
 def _fit_fold(model: AlphaModel, X: pd.DataFrame, y: pd.Series, sample_weight: np.ndarray) -> Any:  # noqa: ANN401

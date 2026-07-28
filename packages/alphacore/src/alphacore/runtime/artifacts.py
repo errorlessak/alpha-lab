@@ -22,7 +22,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
 
-from alphacore.errors import ArtifactExistsError, RunNotFoundError
+from alphacore.errors import ArtifactError, ArtifactExistsError, RunNotFoundError
 from alphacore.runtime.hashing import canonical_json
 from alphacore.runtime.logging import LOG_FILENAME, add_run_sink, logger, remove_sink
 from alphacore.runtime.manifest import MANIFEST_FILENAME, RunManifest, RunStatus
@@ -239,6 +239,28 @@ class RunDirectory:
         """
         return self.write_json(MANIFEST_FILENAME, manifest.model_dump(mode="json"))
 
+    def update_manifest(self, **fields: Any) -> RunManifest:  # noqa: ANN401
+        """Amend the in-flight manifest with facts learned during the run.
+
+        `manifest.json` is one of the two files exempt from write-once (§4, I9)
+        precisely because it has to record things that are not knowable when the
+        run directory is created — the content hash of the data, for instance,
+        which exists only after ingestion has run.
+
+        Args:
+            **fields: Manifest fields to replace.
+
+        Returns:
+            The amended manifest, already written.
+
+        Raises:
+            ArtifactExistsError: If the handle is read-only.
+            RunNotFoundError: If no manifest has been written yet.
+        """
+        amended = self.read_manifest().model_copy(update=fields)
+        self.write_manifest(amended)
+        return amended
+
     def read_manifest(self) -> RunManifest:
         """Read and validate `manifest.json`.
 
@@ -324,6 +346,26 @@ class ArtifactStore:
         )
 
 
+def _current(run: RunDirectory, fallback: RunManifest) -> RunManifest:
+    """Read the manifest from disk so in-run amendments are not lost.
+
+    A run learns things about itself as it goes — the data hash, quality notes —
+    and records them through `update_manifest`. Finalising from the in-memory
+    copy captured at startup would silently discard them.
+
+    Args:
+        run: The run directory.
+        fallback: The manifest captured at startup.
+
+    Returns:
+        The on-disk manifest, or `fallback` if it cannot be read.
+    """
+    try:
+        return run.read_manifest()
+    except (ArtifactError, ValueError):  # pragma: no cover - defensive
+        return fallback
+
+
 @contextmanager
 def run_context(
     *,
@@ -387,7 +429,7 @@ def run_context(
         status = RunStatus.CANCELLED if isinstance(exc, KeyboardInterrupt) else RunStatus.FAILED
         logger.bind(phase="run").error("run {} — {}", status.value, exc)
         run.write_manifest(
-            manifest.finish(
+            _current(run, manifest).finish(
                 status,
                 error="".join(traceback.format_exception(exc)),
                 phase_durations_s=timings.durations_s,
@@ -396,7 +438,7 @@ def run_context(
         )
         raise
     else:
-        final = manifest.finish(
+        final = _current(run, manifest).finish(
             RunStatus.COMPLETED,
             phase_durations_s=timings.durations_s,
             now=dt.datetime.now(dt.UTC),

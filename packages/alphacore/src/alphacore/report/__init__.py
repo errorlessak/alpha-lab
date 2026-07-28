@@ -13,6 +13,7 @@ from alphacore.report.research_md import RESEARCH_FILENAME, render_research_mark
 from alphacore.report.tearsheet import (
     TEARSHEET_FILENAME,
     TEARSHEET_SCHEMA_VERSION,
+    WORSE_THAN_CHANCE_PBO,
     BacktestSection,
     CVSection,
     DatasetSection,
@@ -30,6 +31,7 @@ __all__ = [
     "RESEARCH_FILENAME",
     "TEARSHEET_FILENAME",
     "TEARSHEET_SCHEMA_VERSION",
+    "WORSE_THAN_CHANCE_PBO",
     "BacktestSection",
     "CVSection",
     "DatasetSection",

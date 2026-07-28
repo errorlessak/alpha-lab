@@ -27,6 +27,7 @@ from alphacore.models.leaderboard import LeaderboardRow
 __all__ = [
     "TEARSHEET_FILENAME",
     "TEARSHEET_SCHEMA_VERSION",
+    "WORSE_THAN_CHANCE_PBO",
     "DatasetSection",
     "FeaturesSection",
     "LabelsSection",
@@ -39,6 +40,12 @@ TEARSHEET_FILENAME: Final[str] = "tearsheet.json"
 TEARSHEET_SCHEMA_VERSION: Final[str] = "1.0"
 
 DISCLAIMER: Final[str] = "Research output. Not investment advice."
+
+WORSE_THAN_CHANCE_PBO: Final[float] = 0.5
+"""§11.3: above this, the selection process performs worse than random, and the
+UI must say so in plain language rather than print the number and move on."""
+
+_UNRELIABLE_PBO: Final[float] = 0.25
 
 
 class Base(BaseModel):
@@ -151,13 +158,13 @@ class OverfittingSection(Base):
         """A plain-language reading of the PBO, for the margin (§13.2)."""
         if self.pbo is None:
             return "Probability of backtest overfitting was not computed for this run."
-        if self.pbo > 0.5:  # noqa: PLR2004
+        if self.pbo > WORSE_THAN_CHANCE_PBO:
             return (
                 f"PBO {self.pbo:.2f} — the selection process performs worse than chance. "
                 "The configuration chosen here is more likely than not to underperform "
                 "the median out of sample."
             )
-        if self.pbo > 0.25:  # noqa: PLR2004
+        if self.pbo > _UNRELIABLE_PBO:
             return (
                 f"PBO {self.pbo:.2f} — selection is better than chance, but a quarter to a "
                 "half of the time the chosen configuration lands below the median."

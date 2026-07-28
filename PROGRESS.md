@@ -15,7 +15,7 @@ done when its exit criteria pass, not when the code looks finished.
 | 7 | Backtest engine | ✅ Done — 2026-07-27 |
 | 8 | Metrics and tearsheet | ✅ Done — 2026-07-27 |
 | 9 | Explainability | ✅ Done — 2026-07-27 |
-| 10 | Pipelines and CLI | ⬜ Not started |
+| 10 | Pipelines and CLI | ✅ Done — 2026-07-28 |
 | 11 | API service | ⬜ Not started |
 | 12 | Web app | ⬜ Not started |
 | 13 | Sequence models (optional) | ⬜ Not started |
@@ -818,3 +818,183 @@ with nothing skipped
   that consumes it exists
 - Clustered MDA (§7.3) — needs a permutation loop over the OOF set
 - Wiring SHAP output into a run directory as `shap_summary.parquet` — Phase 10
+
+---
+
+## Phase 10 — Pipelines and CLI ✅
+
+**Completed:** 2026-07-28
+**`CURRENT_PHASE`:** `10`
+**Recipes in `verify`:** `fmt lint types test test-leak smoke` — `smoke` joined
+the gate here, as ADR 0009 said it would. Only `e2e` is still outstanding, and
+it lands at Phase 12.
+
+This is the integration phase. Nothing here is a new idea; everything here is
+Phases 1 to 9 finally wired to each other, and the wiring is what exposes
+whether they were ever really compatible.
+
+### Built
+
+- **`pipelines/build_features.py`** — bars out of the lake, features, labels,
+  the explicit three-class reduction, and the alignment of all three onto one
+  index. `FeatureSet` carries the pre-reduction class balance and the mean
+  label uniqueness, because both belong in the tearsheet and neither survives a
+  `DataFrame.attrs` round trip reliably.
+- **`pipelines/train.py`** — folds, tuning, out-of-fold scoring, one costed
+  backtest per model, then deflation across all of them. `TrainingResult` keeps
+  the predictions, so the leaderboard row and the equity curve are guaranteed to
+  describe the same probabilities.
+- **`pipelines/backtest.py`** — signal, sizing, the event-driven engine, the
+  §11.2 metric set, the cost sweep, the bootstrap interval, PSR, DSR and the
+  minimum track record length. `economic_columns` is the adapter that fills the
+  leaderboard's economic columns.
+- **`pipelines/tune.py`** — Optuna with a TPE sampler and the configured pruner,
+  over an objective that is out-of-fold and economic: fit across the same purged
+  folds, generate the signal, run the costed backtest, return net Sharpe (§10.4).
+- **`pipelines/full_run.py`** — the golden path, writing the §16 run directory
+  contract inside `run_context` so a crashed run is finalised as `failed` with
+  its traceback rather than left looking complete.
+- **`models.score_models`** — `build_leaderboard` with the predictions kept;
+  `build_leaderboard` is now a thin wrapper over it, so no existing caller
+  changed.
+- **`models.attach_economics`** — fills the economic columns, drops
+  `NO_BACKTEST`, adds `LOW_DSR`, and re-ranks. This is the step where ranking
+  switches from IC t-stat to net Sharpe (ADR 0007).
+- **Per-fold correlation pruning.** `fit_predict_oof` now takes the
+  `features.prune` section and applies it *inside* each fold, with that fold's
+  training rows as the fit mask. Until this phase the `prune` config was accepted
+  and never took effect anywhere.
+- **`eval.net_sharpe` and `eval.rolling_sharpe`** — the flat-curve reading of a
+  Sharpe, and the rolling 63/252-bar series §11.2 asks for.
+- **`Ledger.fill_log`** and `BacktestResult.fills` — the fill-by-fill record
+  written to `ledger.parquet`.
+- **`RunDirectory.update_manifest`** — lets a run record what it learns about
+  itself (the data hash) without breaking write-once, and `run_context` now
+  finalises from the on-disk manifest so those amendments survive.
+- **CLI** — `alpha features build`, `alpha train`, `alpha backtest`, `alpha run`,
+  `alpha report`, `alpha runs list|show|compare`, all with Rich output.
+
+### Exit criteria
+
+| Criterion | Result |
+|---|---|
+| `alpha run -c configs/experiments/smoke.yaml` completes end to end | ✅ ~10s wall clock, run directory written, manifest `completed` |
+| The run directory satisfies the §16 contract | ✅ asserted file by file in `test_the_run_directory_satisfies_the_section_16_contract` |
+| Every §15 verb exists with Rich output | ✅ `tests/unit/test_cli_pipelines.py` exercises all of them |
+| §12.4 determinism, same session | ✅ `tearsheet.json` identical after stripping `created_at`, `duration_s`, `host` |
+| §12.4 determinism, fresh subprocess | ✅ same, from a new interpreter |
+| `smoke` added to `verify` (ADR 0009) | ✅ |
+
+### Deviations
+
+1. **Models persist as `model.pkl`, not `model.{txt,json,pt}`.** §16 names
+   library-native formats. `FittedModel.save` has pickled the whole pipeline
+   since Phase 5, and that is the right unit: a LightGBM booster written as
+   `model.txt` loses the winsoriser, the scaler and the calibrator wrapped around
+   it, and a model reloaded without its calibrator produces scores that are not
+   probabilities. One file per model, holding the thing that actually made the
+   predictions.
+2. **`alpha features build`, `alpha train` and `alpha backtest` write nothing.**
+   §15 lists them as deliverables but does not say they produce run directories.
+   A directory containing `features.json` and no `tearsheet.json` would satisfy
+   §16's filenames without satisfying its meaning, and the API and UI read those
+   directories as complete results. `alpha run` is the only verb that writes one.
+3. **`features.n_after_prune` is the last fold's count.** Pruning is fitted, so
+   under §4 (I3) it happens per fold and there is no global number. The last
+   fold's is reported because that is the selection the model a reader would
+   carry forward was trained under. `OOFPredictions.selected_features` keeps all
+   of them.
+4. **`rolling_sharpe.parquet` duplicates the shortest window.** §16 names one
+   file; §11.2 asks for two windows. Both are written as
+   `rolling_sharpe_63.parquet` and `rolling_sharpe_252.parquet`, and the shorter
+   is copied to the contract's filename for the UI's default.
+5. **The run id is pinned, not stripped, in the determinism test.** §12.4 says to
+   strip `created_at`, `duration_s` and `host`. `run_id` contains a timestamp, so
+   a literal reading of that list would fail on every pair of runs.
+   `alpha run --run-id` exists so the two runs differ in nothing else, and the
+   test asserts the ids *were* different before pinning them.
+6. **Optuna lives behind a `tune` extra** and is imported lazily (ADR 0010).
+
+### A bug found in Phase 7's ledger
+
+`Ledger.trades()` treated **any** fill against an open position as closing a
+round trip — including a same-direction scale-in. Phase 7's tests only ever fed
+it ±1 signals, so a position was opened and closed and nothing ever scaled.
+Phase 10 turned on `vol_target` sizing, which rebalances on most bars, and the
+smoke run reported **744 trades for a buy-and-hold position that was opened once
+and never closed**. Every trade metric downstream — win rate, payoff ratio,
+average holding period, max consecutive losses — was describing something that
+did not happen.
+
+A fill in the same direction as the position now blends into the open trade at a
+quantity-weighted average entry price. A reducing fill closes only the quantity
+it sold, and the remainder keeps the entry price it was actually bought at rather
+than inheriting the price it was partly sold at. Six unit tests in
+`tests/unit/test_pipeline_units.py` pin each case.
+
+### What surprised us
+
+- **The cost sweep was backtesting a different strategy than the headline.**
+  `cost_sensitivity` took a signal but no weights, so it ran the unsized ±1
+  version while the headline Sharpe came from the vol-targeted one. The curve
+  started at 0.306 against a headline of 1.049, and the break-even cost derived
+  from it described a strategy nobody ran. It now takes the same weights, and the
+  curve starts where the headline sits. **A sweep that varies one thing has to
+  hold everything else constant, and "everything else" includes the parts you did
+  not think of as inputs.**
+- **A model can be statistically detectable and economically worthless, in the
+  same run.** On the synthetic random walk, `logistic` scores an IC t-stat of
+  3.46 and an AUC of 0.570 — well clear of the shuffled-label baseline's 0.471 —
+  and lands **fifth of six** on net Sharpe at −0.50, tied with the shuffled
+  baseline itself. It is predicting which triple barrier gets touched first,
+  which is largely a question about volatility, and volatility is genuinely
+  predictable. Knowing it earns nothing after costs. This is exactly the
+  divergence ADR 0007 exists for, and it showed up unprompted on the first
+  honest run.
+- **Buy-and-hold wins, and only just clears the haircut.** The top row on the
+  smoke leaderboard is `baseline_buyhold` at net Sharpe 0.960 with a deflated
+  Sharpe of 0.524 — a whisker above the 0.5 line, on a series constructed to
+  contain nothing but drift and noise. Every model that actually predicts
+  something is flagged `LOW_DSR` and lands below zero. §19 asks for a run where
+  the model does not find an edge, reported honestly, with the diagnostics that
+  prove the pipeline would have detected one. This is that run: PBO 0.08, the
+  shuffled baseline sitting exactly where it should, and the only thing that
+  makes money being the thing that does no work.
+- **A look-ahead can hide inside a warm-up.** Vol-target sizing needs a
+  volatility estimate, and the first 20 bars of any window do not have one. The
+  first implementation back-filled the earliest computed value into them — which
+  sizes a position at bar 1 using the volatility of bars 1 to 20. Small, and
+  still a leak. Those bars are held flat now, which also removed the
+  `UNSTOPPED_WARMUP` warning as a side effect: no position is opened before the
+  ATR exists either. It moved the headline Sharpe from 1.049 to 0.960 and the
+  deflated Sharpe from 0.47 to 0.52 — **a leak this small was worth a tenth of a
+  Sharpe point.**
+- **Deflation cannot be computed per model.** The first design ran the engine
+  twice — once to collect the spread of Sharpe ratios, once to deflate against
+  it. Splitting `backtest_predictions` from `deflate_outcomes` halved the work
+  and made the dependency obvious: `Var[SR_n]` is a property of the *search*, not
+  of any one configuration in it.
+- **`sharpe_ratio` needed a companion, not a fix.** A flat equity curve makes it
+  raise, which is correct — but a cost sweep needs the level where trading stops
+  being worth it to be a *point on the curve*, not an exception. `net_sharpe`
+  reads an all-zero series as zero and still raises on a constant *non-zero* one,
+  which is the case that actually indicates a bug.
+
+### Deferred to later phases
+
+- `fill_price: next_vwap` — still accepted by config and still ignored by the
+  engine, which always fills at the open
+- Multi-symbol portfolios — `primary_symbol` raises rather than silently trading
+  the first of several
+- Clustered MDA (§7.3) and reliability diagrams (§10.2)
+- `shap_summary.parquet` is written only when the selected model is a tree model;
+  the smoke config selects a baseline, so the smoke run has no SHAP artifact
+- Only the **selected** model is persisted under `models/`. §16 shows a
+  directory per model; writing six pickles per run to keep five that nobody
+  loads is storage spent on nothing. If the API needs to re-score with a
+  runner-up, this is the line to change.
+- **The winning hyperparameters are not written to the run directory.** §16 does
+  not name an artifact for them and the tearsheet schema has no field. They are
+  recoverable — the study is deterministic given the config and the seed, and
+  the fitted estimator inside `model.pkl` carries them — but a reviewer has to
+  go and get them. Worth a `tuning.json` when the API needs to display them.

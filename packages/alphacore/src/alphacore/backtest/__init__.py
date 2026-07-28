@@ -11,6 +11,7 @@ from alphacore.backtest.engine import BacktestResult, run_backtest
 from alphacore.backtest.ledger import EquityPoint, Fill, Ledger
 from alphacore.backtest.portfolio import Portfolio
 from alphacore.backtest.reference import reference_backtest
+from alphacore.eval.financial import net_sharpe
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -40,6 +41,7 @@ def cost_sensitivity(
     signal: NDArray[np.int_],
     config: BacktestConfig,
     risk: RiskConfig,
+    weights: NDArray[np.float64] | None = None,
     periods_per_year: float = 252.0,
 ) -> list[dict[str, Any]]:
     """Re-run the backtest at each configured cost level (§12.2).
@@ -56,14 +58,21 @@ def cost_sensitivity(
             replace the commission, with the spread and impact zeroed so the
             sweep varies exactly one thing.
         risk: The `risk` section.
+        weights: Per-bar target weights. **Pass the same weights the headline
+            backtest used.** Sweeping an unsized signal while reporting a sized
+            Sharpe would produce a break-even cost for a strategy nobody ran.
         periods_per_year: Bars per year, for carry costs.
 
     Returns:
-        One point per level, each with `bps`, `final_equity`, `total_return`,
-        `max_drawdown`, `n_trades` and `total_costs`.
+        One point per level, each with `bps`, `sharpe`, `final_equity`,
+        `total_return`, `max_drawdown`, `n_trades` and `total_costs`. The
+        Sharpe is what `break_even_cost_bps` interpolates, so it is computed
+        here rather than by re-running the sweep somewhere else.
 
     Raises:
         BacktestError: If the backtest cannot run at any level.
+        EvaluationError: If a level produces constant non-zero returns, which
+            would imply an infinite Sharpe.
     """
     points: list[dict[str, Any]] = []
     for level in config.cost_sensitivity_bps:
@@ -81,12 +90,15 @@ def cost_sensitivity(
             signal=signal,
             config=config.model_copy(update={"costs": swept}),
             risk=risk,
+            weights=weights,
             periods_per_year=periods_per_year,
         )
         summary = result.summary()
+        returns = result.equity["equity"].pct_change().dropna().to_numpy(dtype=float)
         points.append(
             {
                 "bps": float(level),
+                "sharpe": net_sharpe(returns, periods_per_year=periods_per_year),
                 "final_equity": summary["final_equity"],
                 "total_return": summary["total_return"],
                 "max_drawdown": summary["max_drawdown"],

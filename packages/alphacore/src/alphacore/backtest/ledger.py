@@ -125,6 +125,33 @@ class Ledger:
         """How many fills the participation cap truncated."""
         return sum(1 for fill in self.fills if fill.is_partial)
 
+    def fill_log(self) -> pd.DataFrame:
+        """Build the fill-by-fill event log written to `ledger.parquet` (§16).
+
+        `trades()` pairs these into round trips, which is what a reviewer reads;
+        this is the record the pairing was derived from, kept so the two can be
+        reconciled against each other rather than taken on trust.
+
+        Returns:
+            A frame indexed by `ts` with `quantity`, `requested`, `price`,
+            `cost`, `reason`, `bar`, and `partial`.
+        """
+        columns = ["quantity", "requested", "price", "cost", "reason", "bar", "partial"]
+        if not self.fills:
+            return pd.DataFrame(columns=columns, index=pd.DatetimeIndex([], name="ts"))
+        return pd.DataFrame(
+            {
+                "quantity": [f.quantity for f in self.fills],
+                "requested": [f.requested for f in self.fills],
+                "price": [f.price for f in self.fills],
+                "cost": [f.cost for f in self.fills],
+                "reason": [f.reason for f in self.fills],
+                "bar": [-1 if f.bar is None else f.bar for f in self.fills],
+                "partial": [f.is_partial for f in self.fills],
+            },
+            index=pd.DatetimeIndex([f.ts for f in self.fills], name="ts"),
+        )
+
     def equity_curve(self) -> pd.DataFrame:
         """Build the per-bar equity series.
 
@@ -170,10 +197,19 @@ class Ledger:
     def trades(self) -> pd.DataFrame:
         """Pair fills into completed round-trip trades.
 
-        A trade opens when the position leaves zero and closes when it returns
-        to zero or flips. A position still open at the end of the sample is not
-        reported: an unrealised gain is not a trade, and counting it as one is
-        how a blotter comes to disagree with the equity curve.
+        A trade opens when the position leaves zero and closes when a fill
+        *reduces* it — to zero, partially, or through zero into a flip. A fill
+        in the same direction as the position is a scale-in, not a round trip:
+        it blends into the open trade's average entry price and accumulates its
+        cost. Vol-target sizing rebalances on most bars, so counting those as
+        round trips would report several hundred trades for a position that was
+        never closed, and every trade-based metric downstream — win rate,
+        payoff, average holding period — would describe something that did not
+        happen.
+
+        A position still open at the end of the sample is not reported: an
+        unrealised gain is not a trade, and counting it as one is how a blotter
+        comes to disagree with the equity curve.
 
         Returns:
             A frame with one row per completed trade.
@@ -212,6 +248,10 @@ class Ledger:
                     "_bar": fill.bar,
                 }
             elif before != 0.0 and entry is not None:
+                if np.sign(fill.quantity) == np.sign(before):
+                    entry = _scale_in(entry, before=before, fill=fill)
+                    continue
+
                 closed = min(abs(before), abs(fill.quantity))
                 side = entry["side"]
                 gross = side * closed * (fill.price - entry["entry_price"])
@@ -221,6 +261,7 @@ class Ledger:
                 rows.append(
                     {
                         **opened,
+                        "quantity": closed,
                         "exit_ts": fill.ts,
                         "exit_price": fill.price,
                         "pnl": gross - total_cost,
@@ -232,20 +273,63 @@ class Ledger:
                         "exit_reason": fill.reason,
                     }
                 )
-                entry = (
-                    {
-                        "entry_ts": fill.ts,
-                        "side": int(np.sign(position)),
-                        "quantity": abs(position),
-                        "entry_price": fill.price,
-                        "cost": 0.0,
-                        "_bar": fill.bar,
-                    }
-                    if position != 0.0
-                    else None
-                )
+                entry = _carry(entry, position=position, fill=fill)
 
         return pd.DataFrame(rows, columns=columns) if rows else pd.DataFrame(columns=columns)
+
+
+def _scale_in(entry: dict[str, Any], *, before: float, fill: Fill) -> dict[str, Any]:
+    """Blend a same-direction fill into the open trade.
+
+    Args:
+        entry: The open trade.
+        before: Position before this fill.
+        fill: The scale-in fill.
+
+    Returns:
+        The updated entry, carrying a quantity-weighted average entry price.
+        The average is what makes the eventual `return_pct` describe the whole
+        position rather than only the first slice of it.
+    """
+    added = abs(fill.quantity)
+    held = abs(before)
+    total = held + added
+    return {
+        **entry,
+        "entry_price": (held * float(entry["entry_price"]) + added * fill.price) / total,
+        "quantity": total,
+        "cost": float(entry["cost"]) + fill.cost,
+    }
+
+
+def _carry(entry: dict[str, Any], *, position: float, fill: Fill) -> dict[str, Any] | None:
+    """Decide what remains open after a reducing fill.
+
+    Args:
+        entry: The trade that was just closed against.
+        position: Position after the fill.
+        fill: The reducing fill.
+
+    Returns:
+        None when the position is flat. When the fill only trimmed the
+        position, the original entry price and timestamp are kept — the
+        remainder was bought when the trade opened, not at the price it was
+        partly sold at. When the fill flipped the position, a fresh trade opens
+        at the fill price.
+    """
+    if position == 0.0:
+        return None
+    flipped = np.sign(position) != int(entry["side"])
+    if flipped:
+        return {
+            "entry_ts": fill.ts,
+            "side": int(np.sign(position)),
+            "quantity": abs(position),
+            "entry_price": fill.price,
+            "cost": 0.0,
+            "_bar": fill.bar,
+        }
+    return {**entry, "quantity": abs(position), "cost": 0.0}
 
 
 def _bars_held(

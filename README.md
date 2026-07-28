@@ -8,7 +8,7 @@ It deliberately refuses to trade. There is no broker connectivity, no order
 routing, and no recommendation of any kind. The system reports evidence; the
 judgement stays with the researcher.
 
-> **Status: Phase 9 of 14.** In place: determinism and hashing, run manifests,
+> **Status: Phase 10 of 14.** In place: determinism and hashing, run manifests,
 > the immutable artifact store, the config schema, point-in-time ingestion, the
 > parquet lake, the duckdb catalog, quality reporting, 27 in-house causal
 > feature primitives with a leak-proof registry, four labelling methods with
@@ -17,11 +17,13 @@ judgement stays with the researcher.
 > mandatory baselines, signal generation with hysteresis and three sizing
 > methods, the event-driven backtester with its auditable cost model, the full
 > metric set including PSR, DSR, minimum track record length and PBO, the
-> canonical tearsheet with its generated research note, and TreeSHAP
-> explanations. **All seven leakage tests from §12.3 now exist and pass.** The
-> CLI, the API and the web app arrive phase by phase; see
-> [PROGRESS.md](PROGRESS.md). This README gets its screenshots and its honest
-> headline result at Phase 14 (§20).
+> canonical tearsheet with its generated research note, TreeSHAP explanations,
+> hyperparameter search against an out-of-fold *economic* objective, and the
+> pipelines and CLI that compose all of it — **`alpha run` completes the golden
+> path end to end and writes a complete run directory.** All seven leakage tests
+> from §12.3 pass, and the same config run twice produces a byte-identical
+> tearsheet. The API and the web app arrive phase by phase; see
+> [PROGRESS.md](PROGRESS.md). This README gets its screenshots at Phase 14 (§20).
 
 ## Why it exists
 
@@ -100,6 +102,66 @@ To pull real data instead:
 ```bash
 uv run alpha data pull -c configs/experiments/spy_daily_tb.yaml
 ```
+
+### Run the whole thing
+
+```bash
+uv run alpha run -c configs/experiments/smoke.yaml
+```
+
+Ingest, features, labels, purged folds, every candidate and every mandatory
+baseline scored out of fold, a costed backtest of each, the honesty metrics, and
+a written research note — about ten seconds, entirely offline. It leaves a run
+directory under `runs/`:
+
+```
+runs/{run_id}/
+├── tearsheet.json      # the canonical result; the API and UI read nothing else
+├── manifest.json       # config hash, data hash, code revision, seed, timings
+├── config.resolved.yaml  quality.json  features.json  folds.json
+├── equity.parquet  drawdown.parquet  rolling_sharpe.parquet
+├── trades.parquet  predictions.parquet  ledger.parquet
+├── leaderboard.csv  metrics.csv
+├── research.md         # the tearsheet as prose, caveats first
+├── models/{model}/model.pkl
+└── logs.jsonl
+```
+
+The run directory is written once and never modified. Producing a different
+result means producing a new run.
+
+```bash
+uv run alpha runs list
+```
+
+```bash
+uv run alpha runs show <run-id>
+```
+
+```bash
+uv run alpha runs compare <run-id> <run-id>
+```
+
+`compare` puts two runs side by side and says so explicitly when they share a
+config hash — at which point any difference between them came from the data or
+the code, not the configuration.
+
+Individual stages print rather than write: `alpha features build`, `alpha train`
+and `alpha backtest` each take the same `-c <config>` and stop where their name
+says. Only `alpha run` produces a run directory.
+
+### What a good result looks like
+
+On the committed fixture — a seeded random walk with no predictable structure —
+the leaderboard is topped by `baseline_buyhold` at a net Sharpe of 0.960, whose
+deflated Sharpe of 0.52 barely clears the line once the six configurations tried
+are accounted for. Every model that actually predicts something is flagged
+`LOW_DSR` and lands below zero, including a logistic regression with an IC
+t-statistic of 3.46 — statistically detectable, economically worthless. The
+shuffled-label baseline sits at the bottom where it belongs, and PBO is 0.08.
+
+**That is the pipeline working.** There is no edge in a random walk, and a run
+that claimed one would mean something upstream is leaking.
 
 ## Documentation
 
