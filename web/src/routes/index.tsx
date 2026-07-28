@@ -54,8 +54,8 @@ function RunIndex() {
             : `${runs.data?.total ?? 0} runs${failed ? ` · ${failed} did not complete` : ''}`}
         </p>
         <p className="mt-1 max-w-prose text-2xs text-[color:var(--color-ink-muted)]">
-          The short code is the <em>config</em> hash — two runs of the same configuration share
-          it, which is the point. Sort by when they were made to tell them apart.
+          The short code is the <em>config</em> hash — two runs of the same configuration share it,
+          which is the point. Sort by when they were made to tell them apart.
         </p>
       </header>
 

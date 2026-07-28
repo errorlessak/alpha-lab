@@ -32,10 +32,16 @@ export default defineConfig({
       // The venv interpreter directly, not `uv run`: `uv` is not on the default
       // PATH on this machine (HANDOFF §3), and a test suite that only starts
       // for people with the right shell profile is a test suite nobody runs.
+      //
+      // The path is relative to `cwd` below — the repository root — not to this
+      // file. Writing it as `../.venv/...` looked right next to `cwd: '..'` and
+      // resolved one directory above the repository; it went unnoticed for a
+      // phase because `reuseExistingServer` found a server someone had left
+      // running.
       command:
         process.platform === 'win32'
-          ? '..\\.venv\\Scripts\\python.exe -m uvicorn alphaservice.api.app:app --host 127.0.0.1 --port 8000'
-          : '../.venv/bin/python -m uvicorn alphaservice.api.app:app --host 127.0.0.1 --port 8000',
+          ? '.venv\\Scripts\\python.exe -m uvicorn alphaservice.api.app:app --host 127.0.0.1 --port 8000'
+          : '.venv/bin/python -m uvicorn alphaservice.api.app:app --host 127.0.0.1 --port 8000',
       cwd: '..',
       url: 'http://127.0.0.1:8000/api/v1/health',
       reuseExistingServer: !process.env.CI,

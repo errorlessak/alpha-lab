@@ -30,6 +30,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from alphacore.errors import ModelError
+from alphacore.models.protocol import Task
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -40,7 +41,9 @@ __all__ = [
     "CALIBRATION_METHODS",
     "FittedModel",
     "Winsoriser",
+    "apply_calibrator",
     "as_label_series",
+    "fit_calibrator",
     "make_preprocessor",
 ]
 
@@ -148,10 +151,56 @@ def make_preprocessor(
     return steps
 
 
+def fit_calibrator(method: str, raw: NDArray[np.float64], y: pd.Series) -> Any:  # noqa: ANN401
+    """Fit a probability calibrator on held-out scores (§10.2).
+
+    Shared with the sequence models, which hold out the same kind of inner tail
+    for early stopping and calibrate on it rather than growing a second one.
+
+    Args:
+        method: `sigmoid` or `isotonic`. `none` returns nothing to apply.
+        raw: Uncalibrated positive-class scores from the inner split.
+        y: The inner split's labels.
+
+    Returns:
+        The fitted calibrator, or None when the method is `none` or the inner
+        split turned out to be single-class — a calibrator fitted on one class
+        maps everything to that class.
+    """
+    if method == "none" or len(np.unique(y)) < _N_CLASSES:
+        return None
+    if method == "isotonic":
+        calibrator = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0)
+        calibrator.fit(raw, y)
+        return calibrator
+    calibrator = LogisticRegression(max_iter=1_000)
+    calibrator.fit(np.asarray(raw, dtype=float).reshape(-1, 1), y)
+    return calibrator
+
+
+def apply_calibrator(calibrator: Any, raw: NDArray[np.float64]) -> NDArray[np.float64]:  # noqa: ANN401
+    """Map raw scores through a fitted calibrator.
+
+    Args:
+        calibrator: The object returned by `fit_calibrator`.
+        raw: Uncalibrated positive-class scores.
+
+    Returns:
+        Calibrated probabilities, or `raw` unchanged if there is no calibrator.
+    """
+    if calibrator is None:
+        return np.asarray(raw, dtype=float)
+    if isinstance(calibrator, IsotonicRegression):
+        return np.asarray(calibrator.predict(raw), dtype=float)
+    return np.asarray(
+        calibrator.predict_proba(np.asarray(raw, dtype=float).reshape(-1, 1))[:, 1], dtype=float
+    )
+
+
 class FittedModel:
     """Base class implementing `AlphaModel` over an sklearn-style estimator."""
 
-    task = "binary"
+    task: Task = "binary"
 
     def __init__(
         self,
@@ -294,16 +343,8 @@ class FittedModel:
             The fitted calibrator, or None if the inner split is single-class.
         """
         assert self._pipeline is not None
-        raw = self._pipeline.predict_proba(X)[:, 1]
-        if len(np.unique(y)) < _N_CLASSES:
-            return None
-        if self.calibrate == "isotonic":
-            calibrator = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0)
-            calibrator.fit(raw, y)
-            return calibrator
-        calibrator = LogisticRegression(max_iter=1_000)
-        calibrator.fit(raw.reshape(-1, 1), y)
-        return calibrator
+        raw = np.asarray(self._pipeline.predict_proba(X), dtype=float)[:, 1]
+        return fit_calibrator(self.calibrate, raw, y)
 
     def predict_proba(self, X: pd.DataFrame) -> NDArray[np.float64]:
         """Predict calibrated class probabilities.
@@ -319,13 +360,7 @@ class FittedModel:
         """
         pipeline = self._require_fitted()
         raw = np.asarray(pipeline.predict_proba(X), dtype=float)[:, 1]
-        if self._calibrator is not None:
-            raw = (
-                self._calibrator.predict(raw)
-                if isinstance(self._calibrator, IsotonicRegression)
-                else self._calibrator.predict_proba(raw.reshape(-1, 1))[:, 1]
-            )
-        positive = np.clip(np.asarray(raw, dtype=float), 0.0, 1.0)
+        positive = np.clip(apply_calibrator(self._calibrator, raw), 0.0, 1.0)
         return np.column_stack((1.0 - positive, positive))
 
     def predict(self, X: pd.DataFrame) -> NDArray[np.int_]:

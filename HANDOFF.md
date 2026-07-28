@@ -52,10 +52,18 @@ $env:PYTHONHASHSEED="0"
 Extras are **not** installed by `just setup`. The full suite needs them:
 
 ```powershell
-uv sync --all-packages --extra gbm --extra tune
+uv sync --all-packages --extra gbm --extra tune --extra dl
 ```
 
-`tune` is optuna (ADR 0010); without it the tuning tests skip rather than fail.
+`tune` is optuna (ADR 0010) and `dl` is torch (2.13.0, a ~120 MB download);
+without either, those tests skip rather than fail. `just setup-dl` does the same
+with `--all-extras`.
+
+**Nothing may hold `.venv/Scripts/alpha.exe` while uv syncs.** A leftover
+`alpha serve` from an earlier session made `uv sync` fail with
+`failed to remove file ... (os error 32)` **after** it had already uninstalled
+`alphacore`, leaving a venv that could not import the package. Stop the server
+first.
 
 - Python **3.12.13**, uv-managed, at
   `C:\Users\akshy\AppData\Roaming\uv\python\cpython-3.12.13-windows-x86_64-none\`.
@@ -150,7 +158,7 @@ Other CLI: `alpha version`, `alpha dev scratch-run`, `alpha data inspect
 
 ## 5. State of the build
 
-**Phases 0–12 complete. Phase 13 (optional) or 14 is next.**
+**Phases 0–13 complete. Phase 14 is next.**
 
 | Phase | Status |
 |---|---|
@@ -167,17 +175,19 @@ Other CLI: `alpha version`, `alpha dev scratch-run`, `alpha data inspect
 | 10 Pipelines and CLI | ✅ |
 | 11 API service | ✅ |
 | 12 Web app | ✅ |
-| 13 Sequence models (optional) | ⬜ |
+| 13 Sequence models (optional) | ✅ |
 | **14 Packaging and docs** | **⬜ next** |
 
-Last `just verify`: **1009 Python tests passed, 34 web tests passed, 71 leakage
-tests passed**, coverage 89.99%, mypy strict clean on 100 source files, `tsc`
+Last `just verify`: **1062 Python tests passed, 34 web tests passed, 75 leakage
+tests passed**, coverage 89.33%, mypy strict clean on 104 source files, `tsc`
 clean, the smoke run completing the golden path, 10 Playwright tests green, and
 99 KB of initial JS against a 200 KB budget. Lighthouse 96 / 100 / 100.
 
 Commits, newest first:
 
 ```
+(Phase 13) feat: sequence models, fold-aware windows, the GBM ensemble
+35be705 docs: record the Phase 12 commit in the handoff log
 817348b feat: Phase 12 — the web application
 884133c docs: record the Phase 11 commit in the handoff log
 16c9b31 feat: Phase 11 — the API service, the job runner, and SSE
@@ -203,7 +213,8 @@ data/       protocol, providers/{csv,yahoo}, calendars, lake, catalog, quality
 features/   primitives (27), registry, builtins, transforms, pipeline, selection
 labels/     horizon, triple_barrier, meta, weights, binarise
 cv/         splits (+purge/embargo), walkforward, purged, cpcv
-models/     protocol, base, linear, trees, baselines, oof, leaderboard, registry
+models/     protocol, base, linear, trees, baselines, oof, leaderboard, registry,
+            windows (fold-aware windowing), sequence + _nets (torch), ensemble
 signal/     thresholds (hysteresis), sizing
 risk/       stops, limits (kill switch)
 backtest/   costs, portfolio, ledger, engine, reference
@@ -256,11 +267,12 @@ Break these and the project stops meaning anything.
   than no test. Examples already in the tree: the future-poison harness has a
   deliberately leaky centred-window control; the same-bar-execution canary has
   a perfect-foresight inverse canary; the splitter ban has positive samples;
-  the scaler spy has a deliberately global fit.
+  the scaler spy has a deliberately global fit; the window-purge test has the
+  obvious positional windower, which straddles the gap and fails it.
 
 ### The phase gate
 
-`tests/conftest.py` holds `CURRENT_PHASE` (currently **9**).
+`tests/conftest.py` holds `CURRENT_PHASE` (currently **13**).
 `tests/leakage/test_leakage_suite_complete.py` maps the seven §12.3 leakage
 tests to the phase that unlocks each, and fails if one that should exist does
 not. **Bump `CURRENT_PHASE` only when the phase's exit criteria pass.**
@@ -321,14 +333,26 @@ All are recorded in `PROGRESS.md` with reasoning. The short list:
 14. **One schemathesis check is excluded** — `positive_data_acceptance`, because
     an opaque cursor's validity cannot be expressed in JSON Schema. The 400 it
     flags is asserted directly in `tests/api/test_api_runs.py`.
+15. **Sequence models must be told the bar grid** before `fit`, and raise if they
+    were not (ADR 0011). `fit_predict_oof` does it; hand-rolled code must call
+    `model.set_bar_grid(features.index)` itself.
+16. **Sequence models train on CPU unless a device is named** (ADR 0012), because
+    accelerator reductions are not bit-reproducible and I8 is load-bearing.
+    `device: auto` still does what §10.3 describes, and warns.
 
 ---
 
-## 8. Known gaps entering Phase 12
+## 8. Known gaps entering Phase 14
 
-- **`web/` holds only `src/api/generated/schema.d.ts`.** No Vite project, no
-  `package.json`, no tests. `just e2e` still points at a Playwright suite that
-  does not exist, and joins `verify` at the end of Phase 12 (ADR 0009).
+- **Tuned parameters never reach the GBM builders.**
+  `build_model(name, seed=..., **params)` passes them as flat keywords, but
+  `make_lightgbm|xgboost|catboost` take a `params` mapping, so
+  `build_model("lightgbm", seed=1, max_depth=4)` raises `TypeError` —
+  and `tune_model`'s objective catches only `(ModelError, PipelineError)`, so
+  tuning any GBM kills the study. Green since Phase 10 only because
+  `tests/integration/test_tuning.py` tunes `logistic`, whose builder does take
+  flat kwargs. Fix it with a failing test first; `sequence.py`'s builders take a
+  mapping too, so whichever shape wins must cover them.
 - **Jobs do not survive an API restart.** Nothing resumes them; the run
   directory will not claim to be `completed`. ADR 0008 names the design.
 - **No authentication anywhere.** `alpha serve` binds loopback and warns if told
@@ -349,40 +373,46 @@ All are recorded in `PROGRESS.md` with reasoning. The short list:
   entry price and P&L), but it means `n_trades` under `vol_target` sizing is a
   count of realisations, not of round trips. Worth stating plainly wherever the
   UI shows it.
+- **Sequence models have no registered Optuna search space**, so `alpha tune`
+  skips them rather than searching one nobody declared.
+- **The window builder is single-symbol**, following the backtester. A
+  cross-sectional tensor would need a symbol axis and a per-symbol grid.
+- **`just verify` does not require the `dl` extra.** Every sequence test is
+  `pytest.importorskip`-gated, so a fresh clone is green without torch — and a
+  machine without it is not testing Phase 13 at all.
 
 ---
 
-## 9. Phase 12 — what to do next
+## 9. Phase 14 — what to do next
 
 From §15:
 
-> **Do the design pass first**: write `docs/design-plan.md` with the token
-> system, ASCII wireframes for `/` and `/runs/$id`, and the self-critique
-> required by the frontend-design skill. Then build shell + routing + tokens,
-> then the Fold Strip, then charts, then the margin critique engine, then polish.
+> Deliverables: multi-stage Dockerfile + compose, GitHub Actions CI (lint, type,
+> test, coverage gate 85% on `alphacore`, web typecheck + build + Playwright,
+> docker build), README with screenshots and a 5-minute quickstart,
+> `docs/methodology.md`, mermaid architecture diagrams rendered to SVG, three
+> example experiment configs, the generated research report for one real run.
 >
-> **Exit:** golden-path Playwright test passes; Lighthouse ≥ 95 on
-> performance/accessibility/best-practices; bundle budget met; keyboard-only
-> walk through every route works; screenshots committed to `docs/`.
+> **Exit:** `docker compose up` serves the app with the sample dataset on a
+> clean machine; CI green; a stranger can go from `git clone` to a rendered
+> tearsheet in under 10 minutes following only the README.
 
-**The design pass is not optional and comes first.** §15 says so explicitly, and
-§13.2's design tokens and §13.5's quality bar are the acceptance criteria.
+Things Phase 13 leaves that bear on it:
 
-What Phase 11 leaves ready:
-
-- **`web/src/api/generated/schema.d.ts` already exists**, generated from
-  `docs/openapi.json` by `just client`. Regenerate it whenever a route changes;
-  `tests/api/test_openapi_document.py` fails if the committed copy is stale.
-- **Every route the §13.4 pages need is already served**, including the
-  LTTB-downsampled series §13.5's 60fps requirement depends on. The API
-  downsamples to the requested pixel width, so the chart never receives 100k
-  points.
-- **Error states have their text already.** Every problem document names the
-  cause and the fix — "Run X has no tearsheet.json. Its manifest says failed" —
-  which is exactly what §13.5 asks the UI to show. Render `detail`; do not
-  invent a friendlier message.
-- **`/jobs/$id` has a live stream.** `GET /api/v1/jobs/{id}/events` emits `log`,
-  `progress` and one terminal `status` event, and resumes from `Last-Event-ID`.
+- **The image should not carry torch.** The `dl` extra is ~2 GB installed for a
+  model family the sample config does not use. Build the default image from
+  `uv sync --all-packages --extra gbm`, and if a deep-learning image is wanted,
+  make it a second stage rather than the default.
+- **CI must install the extras deliberately**, or the sequence and tuning tests
+  silently skip and the coverage gate drops. Whatever the workflow runs, assert
+  the skip count is zero on the job that claims to cover Phase 13.
+- **Three example configs** are the deliverable, and `smoke.yaml`,
+  `spy_daily_tb.yaml` and `btc_1h_meta.yaml` already exist. A fourth naming a
+  sequence candidate would be the natural place to show `lstm` on a leaderboard
+  outside the test suite.
+- **The e2e web server path was wrong** and hid behind `reuseExistingServer`
+  until a stale server was killed (fixed in `web/playwright.config.ts`). CI has
+  no stale server, so any similar path assumption fails there first.
 
 Run the API with `just serve`; it binds `127.0.0.1:8000` and the Vite dev origin
 is already in the CORS allow-list.

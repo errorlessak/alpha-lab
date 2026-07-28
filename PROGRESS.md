@@ -1241,3 +1241,123 @@ may not be the one you think it is.**
   SHAP summary table is there; the beeswarm needs per-observation values.
 - `/config` as a standalone route. The resolved config and its diff against the
   defaults are served by the API and shown in the run's own pages.
+
+---
+
+## Phase 13 — Sequence models ✅
+
+**Completed:** 2026-07-28
+**`CURRENT_PHASE`:** `13`
+**Recipes in `verify`:** `fmt lint types test test-leak smoke e2e budget` —
+unchanged; the final form arrived in Phase 12.
+
+§15 marks this phase optional. It was built because the thing it adds is not
+"a neural network" but a second family that fails differently from the trees,
+and because the window is a leak surface the rest of the pipeline cannot see:
+purged folds guarantee nothing about a tensor stacked over them.
+
+### Built
+
+- **`models/windows.py`** — the whole leak surface, in torch-free numpy so its
+  tests run without the `dl` extra. `grid_positions` locates a fold's rows on
+  the complete bar index, `contiguous_runs` cuts them into maximal unbroken
+  runs, `build_windows` refuses to lay a window across a run boundary.
+  Training drops the incomplete windows at the head of each run (`pad=False`);
+  prediction repeats a run's first bar so every row still gets exactly one
+  score (`pad=True`).
+- **`models/sequence.py`** — `SequenceModel` behind the same `AlphaModel`
+  contract as everything else: the shared winsoriser and scaler fitted inside
+  `fit` (I3), an inner *tail* split for early stopping, `ReduceLROnPlateau`,
+  best-epoch restore, optional on-disk checkpoints, seeded batch order, and
+  §10.2 calibration fitted on the same held-out tail.
+- **`models/_nets.py`** — `RecurrentClassifier` (LSTM or GRU, stacked or
+  bidirectional) and `TemporalConvNet` (dilated causal convolutions, left
+  padding only). Deliberately small: tens of thousands of parameters.
+- **Five registry names** — `lstm`, `lstm_stacked`, `bilstm`, `gru`, `tcn` —
+  over three architectures, because depth and direction are settings, not
+  separate code paths for the window logic to be wrong in.
+- **`models/ensemble.py`** — `EnsembleModel` averages *calibrated
+  probabilities* (not logits, which would silently change what
+  `signal.thresholds` means), and `ensemble_gbm_lstm` blends LightGBM with the
+  LSTM. Torch-free, so it is tested without the extra.
+- **The bar-grid seam** — `fit_predict_oof` and `full_run`'s export refit hand
+  the full index to any model that windows. ADR 0011.
+
+### Exit criteria
+
+| Criterion | Result |
+|---|---|
+| `import alphacore` works with torch uninstalled | ✅ `tests/unit/test_import_isolation.py` probes a clean subprocess and asserts `torch` is not in `sys.modules`; `tests/unit/test_models_sequence.py` asserts building one without torch raises a `ModelError` naming `--extra dl` |
+| Sequence model appears on the leaderboard | ✅ `tests/integration/test_sequence_leaderboard.py` — `lstm` ranked against the five mandatory baselines through the ordinary OOF path, and `ensemble_gbm_lstm` beside its legs |
+| Window-purge test passes | ✅ `tests/leakage/test_window_purge.py`, with its control |
+
+53 tests across the four new files. Full suite: **1062 passed**, mypy strict
+clean on 104 source files.
+
+### Deviations
+
+1. **`set_bar_grid` is a capability, not part of `AlphaModel`** (ADR 0011). A
+   sequence model raises from `fit` if it was never told the grid, rather than
+   assuming the frame it received is contiguous. The alternative — widening
+   `fit` for eleven models that have no use for it — buys type-checker
+   coverage at the price of a parameter ten implementations ignore.
+2. **CPU by default, accelerators on request** (ADR 0012). §10.3 says
+   "MPS/CUDA if available"; I8 says a run must be reproducible. Choosing a GPU
+   because one happens to be present would make the manifest's reproducibility
+   claim false. `auto` still does what the spec describes, and logs a warning
+   naming what it costs.
+3. **No search space is registered for the sequence models.** §10.4's tuner
+   would happily search one, but each trial trains a network on every fold, and
+   the trial count feeds the deflated-Sharpe haircut. A space added carelessly
+   here makes the haircut bigger and the runs slower for no stated benefit.
+4. **Sequence models report no feature importance.** Input gradients or
+   permutation importance are both defensible numbers, but they answer a
+   different question from the tree importances the leaderboard shows in the
+   same column, and putting them there would invite exactly the comparison they
+   do not support.
+
+### A bug found next door
+
+`build_model(name, seed=..., **params)` forwards tuned settings as flat keyword
+arguments, but the tree builders take a `params` mapping — so
+`build_model("lightgbm", seed=1, max_depth=4)` raises `TypeError`, and
+`tune_model`'s objective catches only `(ModelError, PipelineError)`. Tuning any
+GBM therefore kills the whole study. `tests/integration/test_tuning.py` only
+tunes `logistic`, whose builder does take flat kwargs, which is why this has
+been green since Phase 10. Not fixed here — it predates this phase and belongs
+with its own failing test — but recorded so it is not rediscovered.
+
+### What surprised us
+
+- **"Consecutive" is not a fact about timestamps.** The first windowing design
+  compared elapsed time between bars. It is wrong in a way that looks right:
+  Friday to Monday is three days and zero bars, a holiday is four, and a purge
+  gap is a hundred — but the boundary between "weekend" and "gap" is a
+  threshold, and a leakage check that depends on a tuned threshold is not a
+  check. Positions on the full bar index are exact and need no constant.
+- **The control was worth more than the test.** `test_window_purge` passed the
+  moment it was written, because the implementation it tests was already
+  correct. What proved the assertion had teeth was `_naive_windows`, the
+  obvious implementation, failing it — and later, flipping `pad=False` to
+  `pad=True` inside `fit` and watching the training-window count test go red.
+  A canary that has never seen the bug it guards against is decoration.
+- **Early stopping made the defaults fast enough to leave alone.** A 32-bar,
+  32-unit LSTM with a 40-epoch budget scores a 700-row leaderboard in about two
+  seconds, because it stops after six or seven. The plan had been to add a
+  per-model `params` block to the config schema so the tests could shrink it;
+  the tests did not need it, and §5 kept its shape.
+- **Bidirectional is only frightening until the window is right.** The usual
+  warning — "bidirectional RNNs leak the future" — is a statement about
+  *centred* windows. Over a trailing window the backward pass reads recent bars
+  in reverse and nothing later exists to read, which the poison test asserts
+  directly.
+
+### Deferred
+
+- **Multi-symbol windows.** The backtester is single-symbol (§8 gap list), so
+  the window builder cuts runs within one series. Cross-sectional tensors would
+  need a symbol axis and a per-symbol grid.
+- **Attention and transformer variants.** §10.3 does not ask for them, and on
+  two thousand bars they would be a parameter count in search of a dataset.
+- **Sequence models in the smoke config.** `smoke.yaml` stays GBM-and-baselines
+  so `just verify` does not depend on the `dl` extra being installed.

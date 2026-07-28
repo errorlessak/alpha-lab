@@ -443,6 +443,12 @@ def _explain(
     split = training.splits[-1]
     try:
         model = build_model(selected, seed=config.meta.seed, calibrate=config.models.calibrate)
+        # A sequence model windows on grid positions, so the refit needs the
+        # same full index the folds were cut from (§10.3). Models that do not
+        # window ignore this.
+        set_bar_grid = getattr(model, "set_bar_grid", None)
+        if set_bar_grid is not None:
+            set_bar_grid(feature_set.features.index)
         fitted = model.fit(
             feature_set.features.iloc[split.train_idx],
             feature_set.labels["label"].iloc[split.train_idx],

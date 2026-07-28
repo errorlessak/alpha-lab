@@ -116,6 +116,14 @@ def fit_predict_oof(
         msg = "Cannot assemble out-of-fold predictions without any folds."
         raise ModelError(msg)
 
+    # A sequence model cuts its windows on positions in the *full* index, which
+    # is the only way it can tell a purged block from the next bar (§10.3). It
+    # is told once, here, because this is the only place that knows both the
+    # complete index and which rows each fold kept.
+    set_bar_grid = getattr(model, "set_bar_grid", None)
+    if set_bar_grid is not None:
+        set_bar_grid(features.index)
+
     y = labels["label"]
     weights = labels["weight"].to_numpy(dtype=float)
     pieces: list[pd.DataFrame] = []

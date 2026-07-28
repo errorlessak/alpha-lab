@@ -19,6 +19,8 @@ differently, which is exactly why it is written down.
 | [0008](0008-in-process-job-runner.md) | In-process job runner instead of Celery / Redis | Accepted |
 | [0009](0009-phase-gated-verify.md) | `just verify` gains `smoke` and `e2e` as their phases land | Accepted |
 | [0010](0010-optuna-behind-an-extra.md) | Optuna behind a `tune` extra, imported lazily | Accepted |
+| [0011](0011-sequence-windows-are-cut-on-the-bar-grid.md) | Sequence windows cut on the bar grid, with the grid handed to the model | Accepted |
+| [0012](0012-sequence-models-train-on-cpu-by-default.md) | Sequence models train on CPU unless a device is named | Accepted |
 
 ## A numbering conflict, resolved
 
