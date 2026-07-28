@@ -172,6 +172,8 @@ the golden path end to end.
 Commits, newest first:
 
 ```
+16c9b31 feat: Phase 11 — the API service, the job runner, and SSE
+e6ba42d docs: record the Phase 10 commit in the handoff log
 531ebd5 feat: Phase 10 — pipelines, the CLI, and the economic leaderboard
 3a7aecb docs: add HANDOFF.md for continuing the build in a new session
 c31f3aa feat: Phases 8 and 9 — honesty metrics, the tearsheet, and TreeSHAP
