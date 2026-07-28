@@ -159,6 +159,8 @@ golden path end to end.
 Commits, newest first:
 
 ```
+531ebd5 feat: Phase 10 — pipelines, the CLI, and the economic leaderboard
+3a7aecb docs: add HANDOFF.md for continuing the build in a new session
 c31f3aa feat: Phases 8 and 9 — honesty metrics, the tearsheet, and TreeSHAP
 51ae04f feat: Phases 6 and 7 — signals, risk, and the event-driven backtester
 0f5c3f5 feat: Phase 5 — models, baselines, and the out-of-fold leaderboard
