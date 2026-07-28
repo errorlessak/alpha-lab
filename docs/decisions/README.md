@@ -16,7 +16,7 @@ differently, which is exactly why it is written down.
 | [0005](0005-fastapi-react-over-streamlit.md) | FastAPI + React instead of Streamlit | Accepted |
 | [0006](0006-uv-lockfile-over-pip.md) | `uv` + `uv.lock` instead of `pip` + `requirements.txt` | Accepted |
 | [0007](0007-economic-leaderboard.md) | Out-of-fold economic leaderboard instead of an accuracy leaderboard | Accepted |
-| 0008 | In-process job runner instead of Celery / Redis | Reserved — Phase 11 |
+| [0008](0008-in-process-job-runner.md) | In-process job runner instead of Celery / Redis | Accepted |
 | [0009](0009-phase-gated-verify.md) | `just verify` gains `smoke` and `e2e` as their phases land | Accepted |
 | [0010](0010-optuna-behind-an-extra.md) | Optuna behind a `tune` extra, imported lazily | Accepted |
 
@@ -29,4 +29,4 @@ Two readings were available: renumber the stack deviations so the job runner
 lands on 0006, or keep §2's explicit range and give the job runner the next free
 number. The second is the more conservative reading — §2 states its range
 explicitly and covers exactly seven items — so the job-runner ADR is **0008**,
-reserved until Phase 11 implements it.
+written in Phase 11 when the runner landed.

@@ -22,7 +22,12 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
 
-from alphacore.errors import ArtifactError, ArtifactExistsError, RunNotFoundError
+from alphacore.errors import (
+    ArtifactError,
+    ArtifactExistsError,
+    RunCancelledError,
+    RunNotFoundError,
+)
 from alphacore.runtime.hashing import canonical_json
 from alphacore.runtime.logging import LOG_FILENAME, add_run_sink, logger, remove_sink
 from alphacore.runtime.manifest import MANIFEST_FILENAME, RunManifest, RunStatus
@@ -426,7 +431,11 @@ def run_context(
     try:
         yield run, timings
     except BaseException as exc:
-        status = RunStatus.CANCELLED if isinstance(exc, KeyboardInterrupt) else RunStatus.FAILED
+        # A cancellation is not a failure. Nothing went wrong; the work was
+        # abandoned, and a reviewer scanning statuses should be able to tell the
+        # two apart without reading tracebacks.
+        cancelled = isinstance(exc, KeyboardInterrupt | RunCancelledError)
+        status = RunStatus.CANCELLED if cancelled else RunStatus.FAILED
         logger.bind(phase="run").error("run {} — {}", status.value, exc)
         run.write_manifest(
             _current(run, manifest).finish(

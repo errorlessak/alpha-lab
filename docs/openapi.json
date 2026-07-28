@@ -1,0 +1,5186 @@
+{
+  "components": {
+    "schemas": {
+      "BacktestSection": {
+        "additionalProperties": false,
+        "description": "Backtest results and the cost sensitivity curve.",
+        "properties": {
+          "break_even_bps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Break Even Bps"
+          },
+          "cost_sensitivity": {
+            "default": [],
+            "items": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            "title": "Cost Sensitivity",
+            "type": "array"
+          },
+          "kill_switch": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kill Switch"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Metrics",
+            "type": "object"
+          },
+          "round_trip_bps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Round Trip Bps"
+          },
+          "series_refs": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Series Refs",
+            "type": "object"
+          },
+          "trade_metrics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Trade Metrics",
+            "type": "object"
+          }
+        },
+        "title": "BacktestSection",
+        "type": "object"
+      },
+      "CVSection": {
+        "additionalProperties": false,
+        "description": "The validation scheme and its folds.",
+        "properties": {
+          "embargo_pct": {
+            "minimum": 0.0,
+            "title": "Embargo Pct",
+            "type": "number"
+          },
+          "folds": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FoldSection"
+            },
+            "title": "Folds",
+            "type": "array"
+          },
+          "scheme": {
+            "title": "Scheme",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scheme",
+          "embargo_pct"
+        ],
+        "title": "CVSection",
+        "type": "object"
+      },
+      "CompareResponse": {
+        "description": "Two runs side by side (\u00a713.4, `/compare`).",
+        "properties": {
+          "a": {
+            "$ref": "#/components/schemas/RunSummaryRow"
+          },
+          "b": {
+            "$ref": "#/components/schemas/RunSummaryRow"
+          },
+          "config_identical": {
+            "title": "Config Identical",
+            "type": "boolean"
+          },
+          "data_identical": {
+            "title": "Data Identical",
+            "type": "boolean"
+          },
+          "metric_deltas": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "title": "Metric Deltas",
+            "type": "object"
+          }
+        },
+        "required": [
+          "a",
+          "b",
+          "metric_deltas",
+          "config_identical",
+          "data_identical"
+        ],
+        "title": "CompareResponse",
+        "type": "object"
+      },
+      "ConfigResponse": {
+        "description": "The resolved config, and how it differs from the packaged defaults.",
+        "properties": {
+          "config_hash": {
+            "title": "Config Hash",
+            "type": "string"
+          },
+          "config_yaml": {
+            "title": "Config Yaml",
+            "type": "string"
+          },
+          "diff_vs_defaults": {
+            "additionalProperties": true,
+            "description": "Flattened `path -> {run, default}` for every value that differs.",
+            "title": "Diff Vs Defaults",
+            "type": "object"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "config_yaml",
+          "config_hash",
+          "diff_vs_defaults"
+        ],
+        "title": "ConfigResponse",
+        "type": "object"
+      },
+      "DatasetDetail": {
+        "description": "One dataset and the quality verdict on it.",
+        "properties": {
+          "dataset": {
+            "$ref": "#/components/schemas/DatasetRecord"
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The stored quality report (\u00a76.4), or null when the dataset predates one. Null is not a pass.",
+            "title": "Quality"
+          }
+        },
+        "required": [
+          "dataset"
+        ],
+        "title": "DatasetDetail",
+        "type": "object"
+      },
+      "DatasetList": {
+        "description": "Every catalogued dataset.",
+        "properties": {
+          "datasets": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetRecord"
+            },
+            "title": "Datasets",
+            "type": "array"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "datasets",
+          "total"
+        ],
+        "title": "DatasetList",
+        "type": "object"
+      },
+      "DatasetRecord": {
+        "additionalProperties": false,
+        "description": "One row of the catalog: a dataset as ingested at a point in time.",
+        "properties": {
+          "adjustment": {
+            "title": "Adjustment",
+            "type": "string"
+          },
+          "calendar": {
+            "title": "Calendar",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "dataset_id": {
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "end_ts": {
+            "format": "date-time",
+            "title": "End Ts",
+            "type": "string"
+          },
+          "ingested_at": {
+            "format": "date-time",
+            "title": "Ingested At",
+            "type": "string"
+          },
+          "interval": {
+            "title": "Interval",
+            "type": "string"
+          },
+          "n_rows": {
+            "title": "N Rows",
+            "type": "integer"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Version"
+          },
+          "quality_status": {
+            "title": "Quality Status",
+            "type": "string"
+          },
+          "quality_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quality Summary"
+          },
+          "start_ts": {
+            "format": "date-time",
+            "title": "Start Ts",
+            "type": "string"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset_id",
+          "provider",
+          "symbol",
+          "interval",
+          "start_ts",
+          "end_ts",
+          "n_rows",
+          "content_hash",
+          "ingested_at",
+          "calendar",
+          "adjustment",
+          "quality_status"
+        ],
+        "title": "DatasetRecord",
+        "type": "object"
+      },
+      "DatasetSection": {
+        "additionalProperties": false,
+        "description": "What data the run was computed on.",
+        "properties": {
+          "calendar": {
+            "title": "Calendar",
+            "type": "string"
+          },
+          "interval": {
+            "title": "Interval",
+            "type": "string"
+          },
+          "n_bars": {
+            "minimum": 0.0,
+            "title": "N Bars",
+            "type": "integer"
+          },
+          "periods_per_year": {
+            "description": "Bars per year used for every annualised metric. Recorded because a Sharpe with an undocumented annualisation is unfalsifiable (\u00a711.1).",
+            "exclusiveMinimum": 0.0,
+            "title": "Periods Per Year",
+            "type": "number"
+          },
+          "quality": {
+            "title": "Quality",
+            "type": "string"
+          },
+          "quality_report_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quality Report Ref"
+          },
+          "span": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "format": "date",
+                "type": "string"
+              }
+            ],
+            "title": "Span",
+            "type": "array"
+          },
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Symbols",
+            "type": "array"
+          }
+        },
+        "required": [
+          "symbols",
+          "interval",
+          "calendar",
+          "span",
+          "n_bars",
+          "quality",
+          "periods_per_year"
+        ],
+        "title": "DatasetSection",
+        "type": "object"
+      },
+      "ExplainSection": {
+        "additionalProperties": false,
+        "description": "Pointers to the SHAP artifacts (\u00a79).",
+        "properties": {
+          "n_explained": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "N Explained",
+            "type": "integer"
+          },
+          "shap_summary_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shap Summary Ref"
+          },
+          "top_features": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Top Features",
+            "type": "array"
+          }
+        },
+        "title": "ExplainSection",
+        "type": "object"
+      },
+      "FeaturesSection": {
+        "additionalProperties": false,
+        "description": "How many features were built and how many survived pruning.",
+        "properties": {
+          "families": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Families",
+            "type": "object"
+          },
+          "manifest_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Ref"
+          },
+          "max_lookback": {
+            "minimum": 0.0,
+            "title": "Max Lookback",
+            "type": "integer"
+          },
+          "n_after_prune": {
+            "minimum": 0.0,
+            "title": "N After Prune",
+            "type": "integer"
+          },
+          "n_built": {
+            "minimum": 0.0,
+            "title": "N Built",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "n_built",
+          "n_after_prune",
+          "max_lookback"
+        ],
+        "title": "FeaturesSection",
+        "type": "object"
+      },
+      "FoldSection": {
+        "additionalProperties": false,
+        "description": "One cross-validation fold, as the Fold Strip draws it (\u00a713.2).",
+        "properties": {
+          "embargoed": {
+            "minimum": 0.0,
+            "title": "Embargoed",
+            "type": "integer"
+          },
+          "fold": {
+            "title": "Fold",
+            "type": "integer"
+          },
+          "n_test": {
+            "minimum": 0.0,
+            "title": "N Test",
+            "type": "integer"
+          },
+          "n_train": {
+            "minimum": 0.0,
+            "title": "N Train",
+            "type": "integer"
+          },
+          "purged": {
+            "minimum": 0.0,
+            "title": "Purged",
+            "type": "integer"
+          },
+          "test_span": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "format": "date-time",
+                "type": "string"
+              }
+            ],
+            "title": "Test Span",
+            "type": "array"
+          },
+          "train_span": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "format": "date-time",
+                "type": "string"
+              }
+            ],
+            "title": "Train Span",
+            "type": "array"
+          }
+        },
+        "required": [
+          "fold",
+          "train_span",
+          "test_span",
+          "n_train",
+          "n_test",
+          "purged",
+          "embargoed"
+        ],
+        "title": "FoldSection",
+        "type": "object"
+      },
+      "FoldsResponse": {
+        "description": "Split definitions with their per-fold metrics.",
+        "properties": {
+          "embargo_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embargo Pct"
+          },
+          "folds": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Folds",
+            "type": "array"
+          },
+          "scheme": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheme"
+          }
+        },
+        "required": [
+          "folds"
+        ],
+        "title": "FoldsResponse",
+        "type": "object"
+      },
+      "Health": {
+        "description": "What the service is and what it is reading.",
+        "properties": {
+          "alphacore_version": {
+            "title": "Alphacore Version",
+            "type": "string"
+          },
+          "alphaservice_version": {
+            "title": "Alphaservice Version",
+            "type": "string"
+          },
+          "artifact_store": {
+            "description": "Absolute path to the runs directory.",
+            "title": "Artifact Store",
+            "type": "string"
+          },
+          "git_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Code revision, `-dirty` suffixed when uncommitted.",
+            "title": "Git Sha"
+          },
+          "n_runs": {
+            "description": "Runs currently on disk.",
+            "minimum": 0.0,
+            "title": "N Runs",
+            "type": "integer"
+          },
+          "status": {
+            "description": "`ok` when the service can read its artifact store.",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "alphacore_version",
+          "alphaservice_version",
+          "git_sha",
+          "artifact_store",
+          "n_runs"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "JobList": {
+        "description": "Jobs, newest first.",
+        "properties": {
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobOut"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "jobs",
+          "total"
+        ],
+        "title": "JobList",
+        "type": "object"
+      },
+      "JobOut": {
+        "description": "A job as the API reports it.",
+        "properties": {
+          "cancel_requested": {
+            "title": "Cancel Requested",
+            "type": "boolean"
+          },
+          "config_ref": {
+            "title": "Config Ref",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/JobProgressOut"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "type": {
+            "$ref": "#/components/schemas/JobType"
+          }
+        },
+        "required": [
+          "job_id",
+          "type",
+          "status",
+          "config_ref",
+          "created_at",
+          "progress",
+          "cancel_requested"
+        ],
+        "title": "JobOut",
+        "type": "object"
+      },
+      "JobProgressOut": {
+        "description": "Structured progress (\u00a714.2).",
+        "properties": {
+          "fraction": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when the total is unknown \u2014 not zero.",
+            "title": "Fraction"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "phase",
+          "step",
+          "total",
+          "message"
+        ],
+        "title": "JobProgressOut",
+        "type": "object"
+      },
+      "JobStatus": {
+        "description": "Lifecycle state of a job.",
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "failed",
+          "cancelled"
+        ],
+        "title": "JobStatus",
+        "type": "string"
+      },
+      "JobSubmission": {
+        "description": "What `POST /jobs` accepts.",
+        "properties": {
+          "config_ref": {
+            "description": "Path to the experiment YAML, resolved on the server's filesystem.",
+            "minLength": 1,
+            "title": "Config Ref",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/JobType",
+            "description": "Which stage to run."
+          }
+        },
+        "required": [
+          "type",
+          "config_ref"
+        ],
+        "title": "JobSubmission",
+        "type": "object"
+      },
+      "JobType": {
+        "description": "What a job runs (\u00a714.1).\n\nThe set is closed: `POST /jobs` with an unknown type is a client error, not\nan invitation to run something the service cannot describe.",
+        "enum": [
+          "ingest",
+          "features",
+          "train",
+          "backtest",
+          "full_run"
+        ],
+        "title": "JobType",
+        "type": "string"
+      },
+      "LabelsSection": {
+        "additionalProperties": false,
+        "description": "What the model was asked to predict.",
+        "properties": {
+          "binarised": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Binarised"
+          },
+          "class_balance": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Class Balance",
+            "type": "object"
+          },
+          "horizon_bars": {
+            "minimum": 1.0,
+            "title": "Horizon Bars",
+            "type": "integer"
+          },
+          "mean_uniqueness": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Uniqueness"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "method",
+          "horizon_bars"
+        ],
+        "title": "LabelsSection",
+        "type": "object"
+      },
+      "LeaderboardResponse": {
+        "description": "The leaderboard, ranked.",
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "selected_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Model"
+          }
+        },
+        "required": [
+          "run_id",
+          "selected_model",
+          "rows"
+        ],
+        "title": "LeaderboardResponse",
+        "type": "object"
+      },
+      "LeaderboardRow": {
+        "additionalProperties": false,
+        "description": "One leaderboard entry, as it appears in `tearsheet.json` (\u00a711.4).\n\nDefined here rather than in `report/` because the leaderboard is built\nbefore the tearsheet exists. Phase 8 embeds this model in the tearsheet\nschema rather than restating it, so the two cannot drift.",
+        "properties": {
+          "accuracy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accuracy"
+          },
+          "auc": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auc"
+          },
+          "balanced_accuracy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balanced Accuracy"
+          },
+          "break_even_bps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Break Even Bps"
+          },
+          "brier": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brier"
+          },
+          "dsr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dsr"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "f1": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F1"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "ic": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ic"
+          },
+          "ic_tstat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ic Tstat"
+          },
+          "log_loss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log Loss"
+          },
+          "max_drawdown": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Drawdown"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "n_folds": {
+            "minimum": 0.0,
+            "title": "N Folds",
+            "type": "integer"
+          },
+          "n_predictions": {
+            "minimum": 0.0,
+            "title": "N Predictions",
+            "type": "integer"
+          },
+          "n_trials": {
+            "description": "Configurations evaluated for this row. The N in the deflated Sharpe haircut (\u00a711.2); collected automatically because a hand-entered trial count is self-deception (\u00a710.4).",
+            "minimum": 1.0,
+            "title": "N Trials",
+            "type": "integer"
+          },
+          "oos_net_sharpe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oos Net Sharpe"
+          },
+          "pr_auc": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pr Auc"
+          },
+          "precision": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Precision"
+          },
+          "psr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Psr"
+          },
+          "rank": {
+            "minimum": 1.0,
+            "title": "Rank",
+            "type": "integer"
+          },
+          "recall": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recall"
+          },
+          "sharpe_ci": {
+            "anyOf": [
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharpe Ci"
+          }
+        },
+        "required": [
+          "model",
+          "rank",
+          "n_predictions",
+          "n_folds",
+          "n_trials"
+        ],
+        "title": "LeaderboardRow",
+        "type": "object"
+      },
+      "ManifestSection": {
+        "additionalProperties": false,
+        "description": "Provenance: what produced this result.",
+        "properties": {
+          "code_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code Version"
+          },
+          "config_hash": {
+            "title": "Config Hash",
+            "type": "string"
+          },
+          "data_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Hash"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "packages": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Packages",
+            "type": "object"
+          },
+          "python": {
+            "title": "Python",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "config_hash",
+          "seed",
+          "python"
+        ],
+        "title": "ManifestSection",
+        "type": "object"
+      },
+      "OverfittingSection": {
+        "additionalProperties": false,
+        "description": "The honesty section (\u00a711.3).\n\n`pbo > 0.5` means the selection process performs worse than chance, and\n\u00a711.3 requires that to be stated in plain language rather than left as a\nnumber for the reader to interpret.",
+        "properties": {
+          "median_logit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Logit"
+          },
+          "n_configs_evaluated": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "N Configs Evaluated",
+            "type": "integer"
+          },
+          "n_splits": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "N Splits",
+            "type": "integer"
+          },
+          "pbo": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pbo"
+          },
+          "shuffled_label_ic": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shuffled Label Ic"
+          },
+          "shuffled_label_sharpe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shuffled Label Sharpe"
+          }
+        },
+        "title": "OverfittingSection",
+        "type": "object"
+      },
+      "ProblemDocument": {
+        "additionalProperties": true,
+        "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+        "properties": {
+          "detail": {
+            "description": "What went wrong this time, and where possible what to do.",
+            "title": "Detail",
+            "type": "string"
+          },
+          "instance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The request path.",
+            "title": "Instance"
+          },
+          "status": {
+            "description": "HTTP status code, repeated in the body per RFC 9457.",
+            "title": "Status",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Short summary of the kind of problem.",
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "description": "Stable URI identifying the kind of problem.",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail"
+        ],
+        "title": "ProblemDocument",
+        "type": "object"
+      },
+      "RunPage": {
+        "description": "A page of the run index.",
+        "properties": {
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as `cursor` for the next page. Null on the last page.",
+            "title": "Next Cursor"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/RunSummaryRow"
+            },
+            "title": "Runs",
+            "type": "array"
+          },
+          "total": {
+            "description": "Runs matching the filter, across all pages.",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runs",
+          "total"
+        ],
+        "title": "RunPage",
+        "type": "object"
+      },
+      "RunSummaryRow": {
+        "description": "One row of the run index \u2014 what `/` sorts and filters on (\u00a713.4).",
+        "properties": {
+          "code_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code Version"
+          },
+          "config_hash": {
+            "title": "Config Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Hash"
+          },
+          "dsr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dsr"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "has_tearsheet": {
+            "description": "False for a run that failed before writing one. Those rows still appear.",
+            "title": "Has Tearsheet",
+            "type": "boolean"
+          },
+          "interval": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "oos_net_sharpe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oos Net Sharpe"
+          },
+          "pbo": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pbo"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "selected_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Model"
+          },
+          "span": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Span",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Symbols",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "run_id",
+          "name",
+          "status",
+          "created_at",
+          "seed",
+          "config_hash",
+          "has_tearsheet"
+        ],
+        "title": "RunSummaryRow",
+        "type": "object"
+      },
+      "SeriesResponse": {
+        "description": "A downsampled series, ready to plot.",
+        "properties": {
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "downsampled": {
+            "title": "Downsampled",
+            "type": "boolean"
+          },
+          "index": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Index",
+            "type": "array"
+          },
+          "n_points": {
+            "description": "Points returned.",
+            "minimum": 0.0,
+            "title": "N Points",
+            "type": "integer"
+          },
+          "n_source_points": {
+            "description": "Points before downsampling.",
+            "minimum": 0.0,
+            "title": "N Source Points",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "columns",
+          "index",
+          "values",
+          "n_points",
+          "n_source_points",
+          "downsampled"
+        ],
+        "title": "SeriesResponse",
+        "type": "object"
+      },
+      "ShapSummaryResponse": {
+        "description": "Mean absolute SHAP contribution per feature.",
+        "properties": {
+          "features": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "model",
+          "features"
+        ],
+        "title": "ShapSummaryResponse",
+        "type": "object"
+      },
+      "TablePage": {
+        "description": "A page of a tabular artifact \u2014 trades, predictions.",
+        "properties": {
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "rows": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rows",
+          "total"
+        ],
+        "title": "TablePage",
+        "type": "object"
+      },
+      "Tearsheet": {
+        "additionalProperties": false,
+        "description": "The canonical run result (\u00a711.4).",
+        "properties": {
+          "backtest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BacktestSection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "cv": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CVSection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dataset": {
+            "$ref": "#/components/schemas/DatasetSection"
+          },
+          "disclaimer": {
+            "default": "Research output. Not investment advice.",
+            "title": "Disclaimer",
+            "type": "string"
+          },
+          "explain": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExplainSection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "features": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeaturesSection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LabelsSection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "leaderboard": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardRow"
+            },
+            "title": "Leaderboard",
+            "type": "array"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/ManifestSection"
+          },
+          "overfitting": {
+            "$ref": "#/components/schemas/OverfittingSection"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "selected_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Model"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "run_id",
+          "created_at",
+          "manifest",
+          "dataset"
+        ],
+        "title": "Tearsheet",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "\nRead-only access to the immutable artifact store, and a job runner that creates\nnew runs.\n\n`tearsheet.json` is the canonical result artifact: every number this API serves\nabout a run comes from one, and the run it came from records the config hash,\ndata hash, code revision and seed that produced it.\n\n**Research output. Not investment advice.**\n",
+    "summary": "alphacore 0.1.0",
+    "title": "Alpha Lab",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/datasets": {
+      "get": {
+        "description": "List every dataset in the lake.\n\nArgs:\n    settings: Service settings.\n\nReturns:\n    The catalog rows.",
+        "operationId": "listDatasets",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List catalogued datasets",
+        "tags": [
+          "datasets"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}": {
+      "get": {
+        "description": "Read one dataset's catalog row and quality report.\n\nArgs:\n    dataset_id: Identifier such as `csv:SYNTH:1d`.\n    settings: Service settings.\n\nReturns:\n    The dataset and its quality report.\n\nRaises:\n    Problem: With 404 if the dataset is not catalogued.",
+        "operationId": "getDataset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dataset_id",
+            "required": true,
+            "schema": {
+              "title": "Dataset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          }
+        },
+        "summary": "One dataset with its quality report",
+        "tags": [
+          "datasets"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "description": "Report the service version, revision, and artifact store.\n\nArgs:\n    store: The artifact store.\n\nReturns:\n    The health document. The git revision is included because a number\n    served by an unknown build is a number nobody can reproduce.",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Service health and provenance",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/v1/jobs": {
+      "get": {
+        "description": "List jobs, newest first.\n\nArgs:\n    store: The job store.\n    response: The response, for cache headers.\n    job_status: Optional status filter.\n    limit: Page size.\n\nReturns:\n    The jobs.",
+        "operationId": "listJobs",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/JobStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        },
+        "summary": "List jobs",
+        "tags": [
+          "jobs"
+        ]
+      },
+      "post": {
+        "description": "Queue a job.\n\nArgs:\n    submission: The job type and the config to run it with.\n    runner: The job runner.\n    settings: Service settings.\n    response: The response, for `Location` and cache headers.\n\nReturns:\n    The queued job, with `202 Accepted` and a `Location` pointing at it.\n\nRaises:\n    Problem: With 422 if the config file does not exist. Failing here rather\n        than in the worker means the caller learns about a typo now instead\n        of from a job that dies two seconds later.",
+        "operationId": "createJob",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobSubmission"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        },
+        "summary": "Submit a job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/api/v1/jobs/{job_id}": {
+      "get": {
+        "description": "Read one job.\n\nArgs:\n    job_id: The job id.\n    store: The job store.\n    response: The response, for cache headers.\n\nReturns:\n    The job.",
+        "operationId": "getJob",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        },
+        "summary": "One job's state",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/api/v1/jobs/{job_id}/cancel": {
+      "post": {
+        "description": "Request cancellation.\n\nCancellation is cooperative: a running job stops at its next phase boundary\nand its run directory is finalised as `cancelled` rather than killed\nmid-write (\u00a714.2).\n\nArgs:\n    job_id: The job id.\n    runner: The job runner.\n    response: The response, for cache headers.\n\nReturns:\n    The updated job.\n\nRaises:\n    Problem: With 404 if no such job exists, or 409 if it already finished.",
+        "operationId": "cancelJob",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        },
+        "summary": "Ask a running job to stop",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/api/v1/jobs/{job_id}/events": {
+      "get": {
+        "description": "Stream a job's log lines and progress until it finishes.\n\nResumable: the browser replays `Last-Event-ID` on reconnect and the stream\npicks up from the line after it, so a dropped connection does not lose the\nmiddle of a run's log.\n\nArgs:\n    job_id: The job id.\n    store: The job store.\n    request: The request, for `Last-Event-ID` and disconnect detection.\n\nReturns:\n    The event stream.\n\nRaises:\n    Problem: With 404 if no such job exists.",
+        "operationId": "streamJobEvents",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "An SSE stream of `log`, `progress`, and one terminal `status` event."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Request failed"
+          }
+        },
+        "summary": "Live log and progress stream",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/api/v1/runs": {
+      "get": {
+        "description": "List runs, newest first.\n\nArgs:\n    store: The artifact store.\n    symbol: Optional symbol filter.\n    run_status: Optional status filter.\n    limit: Page size.\n    cursor: Opaque cursor from a previous page.\n\nReturns:\n    A page of the index. Runs that failed before writing a tearsheet are\n    included with `has_tearsheet: false` \u2014 a failed run is a fact about the\n    research, and hiding it would make the index a highlight reel.",
+        "operationId": "listRuns",
+        "parameters": [
+          {
+            "description": "Only runs trading this symbol.",
+            "in": "query",
+            "name": "symbol",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only runs trading this symbol.",
+              "title": "Symbol"
+            }
+          },
+          {
+            "description": "Only runs with this manifest status.",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only runs with this manifest status.",
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor from a previous page.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from a previous page.",
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad request"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          }
+        },
+        "summary": "Paginated run index",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/v1/runs/compare": {
+      "get": {
+        "description": "Compare two runs' headline metrics and provenance.\n\nArgs:\n    store: The artifact store.\n    a: First run id.\n    b: Second run id.\n\nReturns:\n    Both index rows, the metric deltas, and whether the two share a config\n    or data hash. Identical hashes are worth saying out loud: any difference\n    between the runs then came from the code, not the configuration.\n\nRaises:\n    Problem: With 404 if either run is missing.",
+        "operationId": "compareRuns",
+        "parameters": [
+          {
+            "description": "First run id.",
+            "in": "query",
+            "name": "a",
+            "required": true,
+            "schema": {
+              "description": "First run id.",
+              "title": "A",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Second run id.",
+            "in": "query",
+            "name": "b",
+            "required": true,
+            "schema": {
+              "description": "Second run id.",
+              "title": "B",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          }
+        },
+        "summary": "Two runs side by side",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/v1/runs/{run_id}": {
+      "get": {
+        "description": "Serve `tearsheet.json`, the canonical result artifact (\u00a711.4).\n\nArgs:\n    run: The run directory.\n    request: The request, for `If-None-Match`.\n    response: The response, for cache headers.\n\nReturns:\n    The validated tearsheet, or a 304.",
+        "operationId": "getRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tearsheet"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "The client's cached representation is still current."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          }
+        },
+        "summary": "The run's tearsheet",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/v1/runs/{run_id}/config": {
+      "get": {
+        "description": "Serve the resolved config and its diff against the packaged defaults.\n\nArgs:\n    run: The run directory.\n    request: The request, for `If-None-Match`.\n    response: The response, for cache headers.\n\nReturns:\n    The config document, or a 304.\n\nRaises:\n    Problem: With 404 if the run has no resolved config.",
+        "operationId": "getRunConfig",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "The client's cached representation is still current."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          }
+        },
+        "summary": "Resolved configuration",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/v1/runs/{run_id}/export/{artifact}": {
+      "get": {
+        "description": "Download a run artifact at full resolution.\n\nArgs:\n    run: The run directory.\n    artifact: Artifact name, e.g. `tearsheet.json` or `equity.parquet`.\n\nReturns:\n    The file.\n\nRaises:\n    Problem: With 404 if the artifact does not exist, or 400 if the name is\n        not an artifact this service will serve.",
+        "operationId": "exportRunArtifact",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact",
+            "required": true,
+            "schema": {
+              "title": "Artifact",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          }
+        },
+        "summary": "Download one artifact",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/v1/runs/{run_id}/folds": {
+      "get": {
+        "description": "Serve the fold definitions and their per-fold spans.\n\nArgs:\n    run: The run directory.\n    request: The request, for `If-None-Match`.\n    response: The response, for cache headers.\n\nReturns:\n    The folds, or a 304.\n\nRaises:\n    Problem: With 404 if the run has no folds.",
+        "operationId": "getRunFolds",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoldsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "The client's cached representation is still current."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          }
+        },
+        "summary": "Split definitions",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/v1/runs/{run_id}/leaderboard": {
+      "get": {
+        "description": "Serve the leaderboard from the tearsheet.\n\nArgs:\n    run: The run directory.\n    request: The request, for `If-None-Match`.\n    response: The response, for cache headers.\n\nReturns:\n    The leaderboard, or a 304.",
+        "operationId": "getRunLeaderboard",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "The client's cached representation is still current."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          }
+        },
+        "summary": "Ranked leaderboard",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/v1/runs/{run_id}/predictions": {
+      "get": {
+        "description": "Serve out-of-fold predictions, paginated.\n\nArgs:\n    run: The run directory.\n    fold: Optional fold filter.\n    limit: Page size.\n    cursor: Opaque cursor.\n\nReturns:\n    A page of predictions.\n\nRaises:\n    Problem: With 404 if the run has no predictions.",
+        "operationId": "getRunPredictions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Restrict to one fold.",
+            "in": "query",
+            "name": "fold",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict to one fold.",
+              "title": "Fold"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TablePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          }
+        },
+        "summary": "Paginated out-of-fold predictions",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/v1/runs/{run_id}/research": {
+      "get": {
+        "description": "Serve `research.md` as text.\n\nArgs:\n    run: The run directory.\n\nReturns:\n    The markdown, under a `markdown` key so the response stays JSON and the\n    generated client stays typed.\n\nRaises:\n    Problem: With 404 if the run has no note.",
+        "operationId": "getRunResearchNote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Getrunresearchnote",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          }
+        },
+        "summary": "The generated research note",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/v1/runs/{run_id}/series/{name}": {
+      "get": {
+        "description": "Serve a series, downsampled server-side with LTTB.\n\nArgs:\n    run: The run directory.\n    name: One of `equity`, `drawdown`, `rolling_sharpe`, `trades`,\n        `predictions`, `ledger`.\n    request: The request, for `If-None-Match`.\n    response: The response, for cache headers.\n    width: Target point count.\n\nReturns:\n    The series, or a 304.\n\nRaises:\n    Problem: With 404 for an unknown series name or a missing artifact.",
+        "operationId": "getRunSeries",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target point count, normally chart pixels.",
+            "in": "query",
+            "name": "width",
+            "required": false,
+            "schema": {
+              "default": 1200,
+              "description": "Target point count, normally chart pixels.",
+              "maximum": 20000,
+              "minimum": 3,
+              "title": "Width",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "The client's cached representation is still current."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          }
+        },
+        "summary": "Plottable series",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/v1/runs/{run_id}/shap/summary": {
+      "get": {
+        "description": "Serve the SHAP summary frame.\n\nArgs:\n    run: The run directory.\n\nReturns:\n    Mean absolute contribution per feature.\n\nRaises:\n    Problem: With 404 when the run has no SHAP artifact, naming why \u2014 only\n        tree models are explained (\u00a79), and the smoke config selects a\n        baseline.",
+        "operationId": "getRunShapSummary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShapSummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          }
+        },
+        "summary": "SHAP summary",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/v1/runs/{run_id}/trades": {
+      "get": {
+        "description": "Serve the trade blotter, paginated.\n\nArgs:\n    run: The run directory.\n    limit: Page size.\n    cursor: Opaque cursor.\n\nReturns:\n    A page of trades.",
+        "operationId": "getRunTrades",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TablePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "An RFC 9457 problem, as it appears in the OpenAPI document.\n\nDeclared as a model so the generated TypeScript client has a type for the\nerror branch. A client that types errors as `unknown` pushes every caller\ninto `catch (e: any)`.",
+                  "properties": {
+                    "detail": {
+                      "description": "What went wrong this time, and where possible what to do.",
+                      "title": "Detail",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The request path.",
+                      "title": "Instance"
+                    },
+                    "status": {
+                      "description": "HTTP status code, repeated in the body per RFC 9457.",
+                      "title": "Status",
+                      "type": "integer"
+                    },
+                    "title": {
+                      "description": "Short summary of the kind of problem.",
+                      "title": "Title",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Stable URI identifying the kind of problem.",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                  ],
+                  "title": "ProblemDocument",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unprocessable request"
+          }
+        },
+        "summary": "Paginated trade blotter",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/v1/system/config/schema": {
+      "get": {
+        "description": "Serve the JSON schema for `AlphaConfig`.\n\nReturns:\n    The schema pydantic generates from the config models themselves, so the\n    UI cannot render a form that disagrees with what the loader accepts.",
+        "operationId": "getConfigSchema",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Getconfigschema",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "JSON schema for an experiment configuration",
+        "tags": [
+          "system"
+        ]
+      }
+    }
+  }
+}

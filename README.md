@@ -8,7 +8,7 @@ It deliberately refuses to trade. There is no broker connectivity, no order
 routing, and no recommendation of any kind. The system reports evidence; the
 judgement stays with the researcher.
 
-> **Status: Phase 10 of 14.** In place: determinism and hashing, run manifests,
+> **Status: Phase 11 of 14.** In place: determinism and hashing, run manifests,
 > the immutable artifact store, the config schema, point-in-time ingestion, the
 > parquet lake, the duckdb catalog, quality reporting, 27 in-house causal
 > feature primitives with a leak-proof registry, four labelling methods with
@@ -18,12 +18,15 @@ judgement stays with the researcher.
 > methods, the event-driven backtester with its auditable cost model, the full
 > metric set including PSR, DSR, minimum track record length and PBO, the
 > canonical tearsheet with its generated research note, TreeSHAP explanations,
-> hyperparameter search against an out-of-fold *economic* objective, and the
+> hyperparameter search against an out-of-fold *economic* objective, the
 > pipelines and CLI that compose all of it — **`alpha run` completes the golden
-> path end to end and writes a complete run directory.** All seven leakage tests
-> from §12.3 pass, and the same config run twice produces a byte-identical
-> tearsheet. The API and the web app arrive phase by phase; see
-> [PROGRESS.md](PROGRESS.md). This README gets its screenshots at Phase 14 (§20).
+> path end to end and writes a complete run directory** — and a FastAPI service
+> with an in-process job runner, SSE log streaming, RFC 9457 errors, and a
+> TypeScript client generated from its own OpenAPI document. All seven leakage
+> tests from §12.3 pass, the same config run twice produces a byte-identical
+> tearsheet, and the API is contract-tested against its schema. The web app
+> arrives at Phase 12; see [PROGRESS.md](PROGRESS.md). This README gets its
+> screenshots at Phase 14 (§20).
 
 ## Why it exists
 
@@ -163,6 +166,55 @@ shuffled-label baseline sits at the bottom where it belongs, and PBO is 0.08.
 **That is the pipeline working.** There is no edge in a random walk, and a run
 that claimed one would mean something upstream is leaking.
 
+### Serve it
+
+```bash
+just serve
+```
+
+The API on `127.0.0.1:8000`, with interactive documentation at
+[`/api/v1/docs`](http://127.0.0.1:8000/api/v1/docs). It reads the artifact store
+and never writes to it — runs are created by jobs and never modified afterwards.
+
+```bash
+curl -s localhost:8000/api/v1/runs | jq '.runs[0]'
+```
+
+```bash
+curl -s -X POST localhost:8000/api/v1/jobs \
+  -H 'content-type: application/json' \
+  -d '{"type":"full_run","config_ref":"configs/experiments/smoke.yaml"}'
+```
+
+Submitting a job returns `202` and a `Location`. Follow the run live:
+
+```bash
+curl -N localhost:8000/api/v1/jobs/<job-id>/events
+```
+
+That is a server-sent event stream of log lines, structured progress, and one
+terminal status frame. It resumes from `Last-Event-ID` if the connection drops.
+
+Series are downsampled server-side to the pixel width you ask for, so a
+hundred-thousand-point equity curve arrives as the twelve hundred points a chart
+can actually draw:
+
+```bash
+curl -s "localhost:8000/api/v1/runs/<run-id>/series/equity?width=1200"
+```
+
+Errors are RFC 9457 problem documents that name the cause and the fix rather
+than "something went wrong". The service has **no authentication** and can start
+jobs, so it binds loopback by default.
+
+```bash
+just client
+```
+
+Regenerates `docs/openapi.json` and the TypeScript client in
+`web/src/api/generated/`. Both are committed, and the test suite fails if they
+drift from the routes.
+
 ## Documentation
 
 | | |
@@ -171,6 +223,7 @@ that claimed one would mean something upstream is leaking.
 | [PROGRESS.md](PROGRESS.md) | Build log — what is done, what was deferred, what surprised us. |
 | [docs/data-dictionary.md](docs/data-dictionary.md) | Every feature: inputs, parameters, warm-up cost. Generated from the registry. |
 | [docs/decisions/](docs/decisions/) | ADRs. Every deviation from a naïve stack, with its trade-off. |
+| [docs/openapi.json](docs/openapi.json) | The API contract. The TypeScript client is generated from it. |
 | [DISCLAIMER.md](DISCLAIMER.md) | Research software. Not investment advice. |
 
 ## Disclaimer

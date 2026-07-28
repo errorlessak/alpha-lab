@@ -25,6 +25,7 @@ __all__ = [
     "ModelError",
     "PipelineError",
     "ProviderError",
+    "RunCancelledError",
     "RunNotFoundError",
     "SchemaValidationError",
     "SerialisationError",
@@ -66,6 +67,16 @@ class ArtifactExistsError(ArtifactError):
 
 class RunNotFoundError(ArtifactError):
     """No run directory exists for the requested run id."""
+
+
+class RunCancelledError(AlphaError):
+    """A run stopped because something asked it to.
+
+    Distinct from a failure: nothing went wrong, the work was abandoned. The
+    run directory is finalised as `cancelled` rather than `failed`, so a
+    reviewer scanning statuses can tell "this broke" from "somebody stopped
+    this" without reading the traceback (§14.2).
+    """
 
 
 class DataError(AlphaError):

@@ -936,6 +936,79 @@ def _max_drawdown_of(tearsheet: Tearsheet) -> float | None:
     return None if value is None else float(value)
 
 
+@app.command()
+def openapi(
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="Write the document here instead of printing it."),
+    ] = None,
+) -> None:
+    """Emit the OpenAPI 3.1 document the TypeScript client is generated from.
+
+    Written from the application object rather than fetched from a running
+    server, so `just client` needs no port and no process (§14.1).
+
+    Args:
+        output: Destination file. Printed to stdout when absent.
+    """
+    import json  # noqa: PLC0415
+
+    from alphaservice.api.app import create_app  # noqa: PLC0415
+
+    document = json.dumps(create_app().openapi(), indent=2, sort_keys=True) + "\n"
+    if output is None:
+        console.print_json(document)
+        return
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(document, encoding="utf-8", newline="\n")
+    console.print(f"[bold]wrote[/bold] {output.as_posix()}")
+
+
+@app.command()
+def serve(
+    host: Annotated[str, typer.Option("--host", help="Interface to bind.")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port", help="Port to bind.")] = 8000,
+    reload: Annotated[bool, typer.Option("--reload", help="Restart on source changes.")] = False,
+) -> None:
+    """Run the API service.
+
+    Binds loopback by default. This service reads a research artifact store and
+    runs pipelines on request; it has no authentication, and exposing it on a
+    routable interface is a decision the operator has to make deliberately.
+
+    Args:
+        host: Interface to bind.
+        port: Port to bind.
+        reload: Restart on source changes.
+    """
+    import uvicorn  # noqa: PLC0415
+
+    if host not in {"127.0.0.1", "localhost", "::1"}:
+        console.print(
+            f"[yellow]warning[/yellow] binding {host}, which is not loopback. This API has no "
+            "authentication and can start jobs."
+        )
+    uvicorn.run(
+        "alphaservice.api.app:app" if reload else create_api(),
+        host=host,
+        port=port,
+        reload=reload,
+        log_config=None,
+    )
+
+
+def create_api() -> Any:  # noqa: ANN401 - the FastAPI app, imported lazily
+    """Build the API application.
+
+    Returns:
+        The configured FastAPI application, reading its settings from the same
+        environment variables the CLI honours.
+    """
+    from alphaservice.api.app import create_app  # noqa: PLC0415
+
+    return create_app()
+
+
 @config_app.command("show")
 def config_show(config: ConfigOption, overrides: SetOption = None) -> None:
     """Print a resolved config as YAML, with its hash.

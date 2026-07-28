@@ -122,17 +122,30 @@ uv run alpha run -c configs/experiments/smoke.yaml
 The golden path. Ingests, builds, trains, backtests, reports, and writes a
 complete run directory under `runs/`. Takes about ten seconds.
 
+```bash
+just serve
+```
+
+The API on `127.0.0.1:8000`. Interactive docs at `/api/v1/docs`.
+
+```bash
+just client
+```
+
+Regenerates `docs/openapi.json` and `web/src/api/generated/schema.d.ts`. Both
+are committed, and `tests/api/test_openapi_document.py` fails if either is stale.
+
 Other CLI: `alpha version`, `alpha dev scratch-run`, `alpha data inspect
 --dataset csv:SYNTH:1d`, `alpha data list`, `alpha config show -c <yaml>`,
 `alpha features build -c <yaml>`, `alpha train -c <yaml>`,
 `alpha backtest -c <yaml>`, `alpha report <run-id>`,
-`alpha runs list|show|compare`.
+`alpha runs list|show|compare`, `alpha serve`, `alpha openapi`.
 
 ---
 
 ## 5. State of the build
 
-**Phases 0–10 complete. Phase 11 is next.**
+**Phases 0–11 complete. Phase 12 is next.**
 
 | Phase | Status |
 |---|---|
@@ -147,14 +160,14 @@ Other CLI: `alpha version`, `alpha dev scratch-run`, `alpha data inspect
 | 8 Metrics and tearsheet | ✅ |
 | 9 Explainability | ✅ |
 | 10 Pipelines and CLI | ✅ |
-| **11 API service** | **⬜ next** |
-| 12 Web app | ⬜ |
+| 11 API service | ✅ |
+| **12 Web app** | **⬜ next** |
 | 13 Sequence models (optional) | ⬜ |
 | 14 Packaging and docs | ⬜ |
 
-Last `just verify`: **926 passed, 3 deselected, coverage 89.96%**, leakage suite
-green, mypy strict clean on 86 source files, and `just smoke` completing the
-golden path end to end.
+Last `just verify`: **1009 passed, 3 deselected, coverage 89.99%**, leakage suite
+**71 passed**, mypy strict clean on 100 source files, and `just smoke` completing
+the golden path end to end.
 
 Commits, newest first:
 
@@ -190,7 +203,14 @@ explain/    shap_runner
 pipelines/  ingest, build_features, train, backtest, tune, full_run
 ```
 
-`alphaservice` has `cli.py` only. `api/` and `jobs/` are Phase 11.
+```
+alphaservice/
+  cli.py            every verb in §15, plus `serve` and `openapi`
+  errors.py         ServiceError, JobNotFoundError, JobStateError
+  api/              app, settings, deps (ETag/immutable), problems (RFC 9457)
+  api/routers/      system, datasets, runs, jobs
+  jobs/             store.py (SQLite + rolling log), runner.py (process pool)
+```
 
 The pipeline stages compose in one direction: `build_features` produces a
 `FeatureSet`; `train` turns it into a `TrainingResult` (leaderboard, per-model
@@ -285,13 +305,26 @@ All are recorded in `PROGRESS.md` with reasoning. The short list:
     produces a run directory. A directory with `features.json` and no
     `tearsheet.json` would satisfy §16's filenames but not its meaning.
 12. **Optuna lives behind the `tune` extra** and is imported lazily (ADR 0010).
+13. **Job cancellation is cooperative, not a kill** (ADR 0008). A cancel lands at
+    the next phase boundary, so the run directory is finalised rather than
+    killed mid-write.
+14. **One schemathesis check is excluded** — `positive_data_acceptance`, because
+    an opaque cursor's validity cannot be expressed in JSON Schema. The 400 it
+    flags is asserted directly in `tests/api/test_api_runs.py`.
 
 ---
 
-## 8. Known gaps entering Phase 11
+## 8. Known gaps entering Phase 12
 
-- `alphaservice` has **only** `cli.py`. `api/` and `jobs/` do not exist; the
-  job-runner ADR is reserved as **0008**.
+- **`web/` holds only `src/api/generated/schema.d.ts`.** No Vite project, no
+  `package.json`, no tests. `just e2e` still points at a Playwright suite that
+  does not exist, and joins `verify` at the end of Phase 12 (ADR 0009).
+- **Jobs do not survive an API restart.** Nothing resumes them; the run
+  directory will not claim to be `completed`. ADR 0008 names the design.
+- **No authentication anywhere.** `alpha serve` binds loopback and warns if told
+  to bind anything else.
+- `GET /runs/{id}/shap/explain?ts=` is not implemented — it needs a fitted model
+  reloaded per request, which wants a cache.
 - `fill_price: next_vwap` is accepted by config but the engine always fills at
   the open.
 - The backtest engine is **single-symbol**. `primary_symbol` raises on a config
@@ -309,29 +342,40 @@ All are recorded in `PROGRESS.md` with reasoning. The short list:
 
 ---
 
-## 9. Phase 11 — what to do next
+## 9. Phase 12 — what to do next
 
 From §15:
 
-> **Deliverables:** every endpoint in §14.1, job runner, SSE, OpenAPI,
-> generated TS client.
+> **Do the design pass first**: write `docs/design-plan.md` with the token
+> system, ASCII wireframes for `/` and `/runs/$id`, and the self-critique
+> required by the frontend-design skill. Then build shell + routing + tokens,
+> then the Fold Strip, then charts, then the margin critique engine, then polish.
 >
-> **Exit:** schemathesis contract tests pass; a run created via `POST /jobs` is
-> fully readable through the API; SSE streams logs in real time.
+> **Exit:** golden-path Playwright test passes; Lighthouse ≥ 95 on
+> performance/accessibility/best-practices; bundle budget met; keyboard-only
+> walk through every route works; screenshots committed to `docs/`.
 
-§14.1 has the endpoint list and §14.2 the job runner. Two things Phase 10 built
-that Phase 11 should lean on rather than duplicate:
+**The design pass is not optional and comes first.** §15 says so explicitly, and
+§13.2's design tokens and §13.5's quality bar are the acceptance criteria.
 
-- **`tearsheet.json` is the only result the API reads** (§11.4). `validate_tearsheet`
-  already turns a malformed artifact into an `EvaluationError`, which is the
-  right thing to surface as a 422 rather than a 500.
-- **`run_experiment` is already the whole job.** The job runner wraps it; it
-  should not reassemble the stages itself. `RunSummary` carries everything a
-  job record needs, and `run_context` already finalises a crashed run as
-  `failed` with its traceback.
+What Phase 11 leaves ready:
 
-`report/exporters.lttb_downsample` exists for the server-side downsampling
-§14.1 asks for and has never had a caller.
+- **`web/src/api/generated/schema.d.ts` already exists**, generated from
+  `docs/openapi.json` by `just client`. Regenerate it whenever a route changes;
+  `tests/api/test_openapi_document.py` fails if the committed copy is stale.
+- **Every route the §13.4 pages need is already served**, including the
+  LTTB-downsampled series §13.5's 60fps requirement depends on. The API
+  downsamples to the requested pixel width, so the chart never receives 100k
+  points.
+- **Error states have their text already.** Every problem document names the
+  cause and the fix — "Run X has no tearsheet.json. Its manifest says failed" —
+  which is exactly what §13.5 asks the UI to show. Render `detail`; do not
+  invent a friendlier message.
+- **`/jobs/$id` has a live stream.** `GET /api/v1/jobs/{id}/events` emits `log`,
+  `progress` and one terminal `status` event, and resumes from `Last-Event-ID`.
+
+Run the API with `just serve`; it binds `127.0.0.1:8000` and the Vite dev origin
+is already in the CORS allow-list.
 
 ---
 

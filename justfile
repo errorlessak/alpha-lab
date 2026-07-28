@@ -70,9 +70,17 @@ verify-full: verify e2e
 docs:
     uv run python -m alphacore.features --emit-docs --output docs/data-dictionary.md
 
-# Run the API and the web dev server.
+# Run the API on loopback. The service has no authentication and can start
+# jobs, so it does not bind a routable interface by default.
 serve:
-    uv run uvicorn alphaservice.api.app:app --reload
+    uv run uvicorn alphaservice.api.app:app --host 127.0.0.1 --port 8000 --reload
+
+# Regenerate the OpenAPI document and the TypeScript client from it (§14.1).
+# The document is written from the application object, so no server is needed.
+# `tests/api/test_openapi_document.py` fails if the committed copy is stale.
+client:
+    uv run alpha openapi -o docs/openapi.json
+    npx --yes openapi-typescript@7 docs/openapi.json -o web/src/api/generated/schema.d.ts
 
 # Emit a requirements.txt for graders who want one (ADR 0006).
 export-requirements:

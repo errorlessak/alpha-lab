@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from alphacore.errors import ArtifactExistsError, RunNotFoundError
+from alphacore.errors import ArtifactExistsError, RunCancelledError, RunNotFoundError
 from alphacore.runtime.artifacts import ArtifactStore, run_context
 from alphacore.runtime.logging import LOG_FILENAME
 from alphacore.runtime.manifest import MANIFEST_FILENAME, RunStatus
@@ -163,6 +163,24 @@ def test_run_context_marks_an_interrupted_run_cancelled(store, frozen_now):
 
     manifest = store.open_run(captured["run_id"]).read_manifest()
     assert manifest.status is RunStatus.CANCELLED
+
+
+def test_run_context_marks_a_cancelled_run_cancelled(store, frozen_now):
+    # A job cancelled through the API arrives as RunCancelledError, not as a
+    # keyboard interrupt. §14.2 requires the run directory to end up marked
+    # rather than left half-written and presented as valid.
+    captured = {}
+    with (
+        pytest.raises(RunCancelledError, match="asked to stop"),
+        run_context(name="smoke", seed=1, config=CONFIG, store=store, now=frozen_now) as (run, _),
+    ):
+        captured["run_id"] = run.run_id
+        msg = "the job was asked to stop"
+        raise RunCancelledError(msg)
+
+    manifest = store.open_run(captured["run_id"]).read_manifest()
+    assert manifest.status is RunStatus.CANCELLED
+    assert "asked to stop" in (manifest.error or "")
 
 
 def test_run_context_generates_the_documented_run_id(store, frozen_now):

@@ -26,7 +26,13 @@ import pandas as pd
 
 from alphacore.config.loader import to_serialisable
 from alphacore.cv import FOLDS_FILENAME, splits_to_json
-from alphacore.errors import AlphaError, DataQualityError, ModelError, PipelineError
+from alphacore.errors import (
+    AlphaError,
+    DataQualityError,
+    ModelError,
+    PipelineError,
+    RunCancelledError,
+)
 from alphacore.eval import cscv_pbo
 from alphacore.explain import shap_summary
 from alphacore.models.leaderboard import WEAK_DSR
@@ -59,6 +65,7 @@ from alphacore.runtime.manifest import capture_environment
 
 if TYPE_CHECKING:
     import datetime as dt
+    from collections.abc import Callable
 
     from alphacore.config.schema import AlphaConfig
     from alphacore.data.quality import DataQualityReport
@@ -100,7 +107,7 @@ class RunSummary:
         return self.tearsheet.headline
 
 
-def run_experiment(
+def run_experiment(  # noqa: PLR0913 - each argument is a distinct run-level decision
     config: AlphaConfig,
     *,
     data_dir: Path | str = "data",
@@ -110,6 +117,7 @@ def run_experiment(
     skip_ingest: bool = False,
     explain: bool = True,
     now: dt.datetime | None = None,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> RunSummary:
     """Run the full golden path and write a complete run directory.
 
@@ -128,6 +136,11 @@ def run_experiment(
         explain: Compute SHAP values for the selected model when it is a tree
             model. Disabled by tests that do not need them.
         now: Creation time, for a reproducible run id.
+        should_cancel: Polled between phases. Returning True stops the run with
+            a `RunCancelledError`, and the directory is finalised as
+            `cancelled` rather than left half-written (§14.2). Checked between
+            phases rather than inside them: a phase interrupted halfway would
+            leave a partial artifact, which is the thing being avoided.
 
     Returns:
         The run summary.
@@ -135,6 +148,7 @@ def run_experiment(
     Raises:
         AlphaError: Any stage failure. The run directory is finalised as
             `failed` with the traceback before the error propagates.
+        RunCancelledError: If `should_cancel` returns True at a phase boundary.
     """
     symbol = primary_symbol(config)
     set_global_seed(config.meta.seed)
@@ -148,6 +162,7 @@ def run_experiment(
         now=now,
     ) as (run, timings):
         run.write_text(_CONFIG_FILENAME, _resolved_yaml(config))
+        _check_cancelled(should_cancel, "before ingest")
 
         with timings.phase("ingest"):
             quality, data_hash, trusted = _prepare_data(
@@ -159,15 +174,18 @@ def run_experiment(
                 skip_ingest=skip_ingest,
             )
             run.update_manifest(data_hash=data_hash)
+        _check_cancelled(should_cancel, "after ingest")
 
         with timings.phase("features"):
             bars = load_bars(config, data_dir=data_dir, symbol=symbol)
             feature_set = build_feature_set(config, bars, symbol=symbol)
             run.write_json(_FEATURES_FILENAME, feature_set.manifest.model_dump(mode="json"))
+        _check_cancelled(should_cancel, "after features")
 
         with timings.phase("train"):
             training = train_models(config, feature_set)
             run.write_text(FOLDS_FILENAME, splits_to_json(training.splits))
+        _check_cancelled(should_cancel, "after training")
 
         selected = training.selected
         outcome = training.selected_outcome
@@ -213,6 +231,24 @@ def run_experiment(
         feature_set=feature_set,
         training=training,
     )
+
+
+def _check_cancelled(should_cancel: Callable[[], bool] | None, where: str) -> None:
+    """Stop the run if something has asked it to.
+
+    Args:
+        should_cancel: The predicate, or None when nothing can cancel this run.
+        where: The phase boundary being checked, named in the error so the run
+            log says how far it got.
+
+    Raises:
+        RunCancelledError: If the predicate returns True.
+    """
+    if should_cancel is None or not should_cancel():
+        return
+    logger.bind(phase="run").warning("run cancelled {}", where)
+    msg = f"The run was cancelled {where}."
+    raise RunCancelledError(msg)
 
 
 def _resolved_yaml(config: AlphaConfig) -> str:

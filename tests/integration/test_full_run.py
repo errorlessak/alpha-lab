@@ -21,6 +21,7 @@ import time
 import pytest
 
 from alphacore.config import load_config
+from alphacore.errors import RunCancelledError
 from alphacore.pipelines import run_experiment
 from alphacore.report import TEARSHEET_FILENAME, validate_tearsheet
 from alphacore.runtime import ArtifactStore, RunStatus
@@ -176,6 +177,50 @@ def test_the_run_directory_is_immutable(completed):
     reopened = ArtifactStore(root / "runs").open_run(summary.run_id)
     with pytest.raises(Exception, match="read-only"):
         reopened.write_text("tearsheet.json", "{}")
+
+
+# --------------------------------------------------------------------------
+# Cancellation (§14.2)
+# --------------------------------------------------------------------------
+
+
+def test_a_run_asked_to_stop_before_it_starts_stops_immediately(smoke_config, tmp_path):
+    store = ArtifactStore(tmp_path / "runs")
+    with pytest.raises(RunCancelledError, match="cancelled"):
+        run_experiment(
+            smoke_config,
+            data_dir=tmp_path / "lake",
+            store=store,
+            run_id="cancelled_early",
+            should_cancel=lambda: True,
+        )
+    manifest = store.open_run("cancelled_early").read_manifest()
+    assert manifest.status is RunStatus.CANCELLED
+
+
+def test_a_cancelled_run_leaves_a_marked_directory_not_a_half_written_one(smoke_config, tmp_path):
+    """§14.2: a killed job's run directory is never presented as valid.
+
+    Cancelling after ingest leaves a directory with real artifacts in it. What
+    must not happen is that directory reading as `completed`, because the API
+    and the UI treat a completed run as a result.
+    """
+    store = ArtifactStore(tmp_path / "runs")
+    checks = iter([False, False, True, True, True, True])
+
+    with pytest.raises(RunCancelledError):
+        run_experiment(
+            smoke_config,
+            data_dir=tmp_path / "lake",
+            store=store,
+            run_id="cancelled_midway",
+            should_cancel=lambda: next(checks, True),
+        )
+
+    run = store.open_run("cancelled_midway")
+    assert run.read_manifest().status is RunStatus.CANCELLED
+    assert run.exists("quality.json"), "the work it did finish is still on disk"
+    assert not run.exists("tearsheet.json"), "but there is no result to read"
 
 
 # --------------------------------------------------------------------------

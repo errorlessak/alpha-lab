@@ -5,8 +5,10 @@ description = "FastAPI service and Typer CLI over the immutable alphacore artifa
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alphacore",
+    "fastapi>=0.115",
     "rich>=13.7",
     "typer>=0.12",
+    "uvicorn>=0.30",
 ]
 
 [project.scripts]
