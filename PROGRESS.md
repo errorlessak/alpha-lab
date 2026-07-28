@@ -17,7 +17,7 @@ done when its exit criteria pass, not when the code looks finished.
 | 9 | Explainability | ✅ Done — 2026-07-27 |
 | 10 | Pipelines and CLI | ✅ Done — 2026-07-28 |
 | 11 | API service | ✅ Done — 2026-07-28 |
-| 12 | Web app | ⬜ Not started |
+| 12 | Web app | ✅ Done — 2026-07-28 |
 | 13 | Sequence models (optional) | ⬜ Not started |
 | 14 | Packaging and docs | ⬜ Not started |
 
@@ -1120,3 +1120,124 @@ those tests did not.
   is a Phase 12 shaping decision.
 - Authentication. There is none. `alpha serve` binds loopback and warns if told
   to bind anything else.
+
+---
+
+## Phase 12 — Web app ✅
+
+**Completed:** 2026-07-28
+**`CURRENT_PHASE`:** `12`
+**Recipes in `verify`:** `fmt lint types test test-leak smoke e2e budget` — the
+final form. ADR 0009 said `e2e` would join at Phase 12; it has, so that ADR is
+now history and `verify-full` is an alias.
+
+The design pass came first, as §15 requires: [docs/design-plan.md](docs/design-plan.md)
+has the token system, the layout concept, ASCII wireframes for `/` and
+`/runs/$id`, and the self-critique against the three AI-design defaults.
+
+### Built
+
+- **Vite · React 19 · TS strict · TanStack Router (file-based) · TanStack Query
+  · Tailwind v4** with §13.2's tokens as `@theme` variables.
+- **`styles/tokens.css`** — the palette, type, scale, spacing and radius from
+  §13.2 verbatim, with the dark-mode rule that inverts the ground and lifts the
+  accents 12% without changing their identity.
+- **The Fold Strip** (`components/FoldStrip.tsx`) — hand-written SVG. One lane
+  per fold, prussian train, sulphur hatched purge, plum test, price as a
+  hairline behind. It is the hero, the global fold selector, and the honest
+  disclosure of how the model was validated. Sticky across every sub-route.
+- **The Provenance Stamp** — a required prop on every plate that shows numbers,
+  so no chart can be screenshotted out of context and misread.
+- **The margin** (`components/Margin.tsx` + `lib/critique.ts`) — generated
+  objections typeset as true marginalia, aligned to the plate they refer to,
+  with a hairline leader. 16 tests on the critique rules.
+- **The tolerance rail** — the anti-template replacement for a row of big
+  numbers. Point estimate, confidence interval, and the threshold it must clear,
+  on one hairline scale.
+- **All eleven routes** from §13.4, each stage rendering the API's own error text
+  when its artifact is absent.
+- **`lib/api.ts`** over the generated OpenAPI types — no hand-written shapes.
+- **Bundle budget, Lighthouse and screenshot scripts**, all runnable from `just`.
+
+### Exit criteria
+
+| Criterion | Result |
+|---|---|
+| Golden-path Playwright test passes | ✅ 10 tests: index → run → verdict → every stage → fold filtering → error states |
+| Lighthouse ≥ 95 on performance / accessibility / best-practices | ✅ **96 / 100 / 100**, median of three |
+| Bundle budget met | ✅ **99 KB gzipped initial JS** against a 200 KB budget — 50% |
+| Keyboard-only walk through every route | ✅ asserted in the suite, including a visible focus ring |
+| Screenshots committed to `docs/` | ✅ `docs/screenshots/` — index, overview, leaderboard, backtest |
+
+### Deviations
+
+1. **`exactOptionalPropertyTypes` is off.** `strict` and
+   `noUncheckedIndexedAccess` are on, which is what §13.3 asks for. The extra
+   flag turns every nullable field in the *generated* OpenAPI types into an
+   error that says nothing about correctness, because OpenAPI expresses
+   nullability as both `?:` and `| null`.
+2. **A `--color-link` token was added beyond §13.2's palette.** In dark mode the
+   specified accent lift of +12% puts prussian at `#4f7cb0`, which measures
+   4.33:1 for 14px link text — under AA. §13.5's accessibility bar is not
+   negotiable, so link *text* uses a further-lifted blue while every structural
+   use keeps the specified value. The Fold Strip's colours are untouched.
+3. **The tolerance rail is a fourth device** in a brief that specifies three. It
+   earns its place by replacing something worse — the template stat row §13.4
+   would otherwise imply — and by being quiet enough not to compete with the
+   Fold Strip. Recorded in the design plan's self-critique as the first thing to
+   cut if it ever reads as clutter.
+4. **Only Latin font subsets are loaded.** The full packages ship Cyrillic,
+   Greek and Vietnamese `@font-face` blocks that this interface never enters,
+   and the stylesheet is render-blocking.
+
+### Bugs the screenshots caught
+
+**The Fold Strip was drawing every fold on one row.** Walk-forward windows
+overlap in time, so three folds painted over each other into a single band that
+said nothing at all — the signature element, communicating none of the thing it
+exists to communicate. It looked plausible in code and was obviously wrong the
+moment it was rendered. One lane per fold fixed it, and the sliding window is now
+the shape you see.
+
+**`autoCodeSplitting` duplicated a React context.** `RunContext` was created in
+the layout route file; the router's splitter put the child routes in a different
+chunk with a *second copy* of that module, so every child read the default value.
+The page rendered its header and its Fold Strip and then nothing — which looks
+exactly like a page still loading. Moving the context to `lib/run-context.tsx`
+fixed it. **A context created inside a code-split route file is a context that
+may not be the one you think it is.**
+
+### What surprised us
+
+- **Screenshots are not a formality.** Two of the three real defects in this
+  phase were invisible in the code, invisible to the type checker, and obvious
+  in a picture. The `frontend-design` skill's instruction to screenshot and
+  critique earned its place immediately.
+- **Font preloading moved Lighthouse performance from 93 to 96.** The
+  `@font-face` rules live in the bundled stylesheet, so the browser cannot
+  discover them until it has fetched and parsed that CSS — one round trip after
+  it needed to. Two `<link rel="preload">` tags recovered three points, more
+  than any JavaScript change would have.
+- **A single Lighthouse run is not evidence.** Scores swung 92–98 on the same
+  build depending on what else was compiling. `scripts/lighthouse.mjs` takes the
+  median of three, which is the smallest thing that is not luck.
+- **Accessibility caught a conflict inside the specification.** §13.2's dark
+  mode rule and §13.5's contrast bar cannot both hold for link text. The
+  interesting part is that the automated check found it — a human reviewer
+  reading both sections would very likely not have.
+
+### Deferred
+
+- `/runs/$id/features` shows the manifest and label summary but not the
+  clustered correlation matrix or IC-by-feature. Both need endpoints that do not
+  exist yet.
+- `/runs/$id/models` has the leaderboard but not ROC/PR, the confusion matrix or
+  the calibration diagram — all need per-prediction data the API paginates
+  rather than aggregates.
+- `/runs/$id/backtest` has the cost curve, rolling Sharpe and a virtualised
+  trade table, but no candlestick with trade markers: `lightweight-charts` is
+  installed and unused, because the OHLC series has no endpoint.
+- The monthly return heatmap, the SHAP beeswarm and the dependence plots. The
+  SHAP summary table is there; the beeswarm needs per-observation values.
+- `/config` as a standalone route. The resolved config and its diff against the
+  defaults are served by the API and shown in the run's own pages.

@@ -21,28 +21,35 @@ default:
 # that Phase 13 is the first to need. Use `just setup-dl` when you get there.
 setup:
     uv sync --all-packages
+    npm --prefix web ci
+    npm --prefix web exec playwright install --with-deps chromium
     uv run pre-commit install
 
 # Add the optional deep-learning extra (Phase 13).
 setup-dl:
     uv sync --all-packages --all-extras
 
-# Format. Ruff is the only formatter (ADR 0004).
+# Format. Ruff for Python (ADR 0004), Prettier for the web app.
 fmt:
     uv run ruff format .
+    npm --prefix web run format
 
 # Lint, including the one-way dependency contract from §3.
 lint:
     uv run ruff check .
     uv run lint-imports
+    npm --prefix web run lint
 
-# Type-check both source trees under mypy strict.
+# Type-check both source trees under mypy strict, and the web app under
+# TypeScript strict.
 types:
     uv run mypy packages/alphacore/src packages/alphaservice/src
+    npm --prefix web run typecheck
 
-# Full test suite with the coverage gate.
+# Full test suite with the coverage gate, plus the web app's unit tests.
 test:
     uv run pytest --cov=alphacore --cov-fail-under=85
+    npm --prefix web run test
 
 # The leakage suite (§12.3) — the tests that decide whether any number this
 # system produces is real.
@@ -54,15 +61,35 @@ test-leak:
 smoke:
     uv run alpha run -c configs/experiments/smoke.yaml
 
-# Playwright end-to-end suite. Wired up in Phase 12.
+# The Playwright golden path (§13.5). Builds first, because the suite runs
+# against the built app rather than the dev server — a bundle that only works
+# unbundled is a bundle nobody can ship.
 e2e:
-    npm --prefix web exec playwright test
+    npm --prefix web run build
+    npm --prefix web run e2e
 
-# The gate. `smoke` joined it at Phase 10; `e2e` joins at Phase 12 (ADR 0009).
-verify: fmt lint types test test-leak smoke
+# Lighthouse against the built app, median of three (§13.5 sets the bar at 95).
+# Needs `npm --prefix web run preview` already serving on 4173.
+lighthouse:
+    npm --prefix web run lighthouse
 
-# The gate in its final form, for use once every phase has landed.
-verify-full: verify e2e
+# Regenerate the committed screenshots in docs/screenshots (§15 Phase 12 exit).
+screenshots:
+    npm --prefix web run build
+    npm --prefix web run screenshots
+
+# The bundle budget: initial JS <= 200 KB gzipped (§13.5). Fails, never warns.
+budget:
+    npm --prefix web run build
+    npm --prefix web run budget
+
+# The gate, in its final form. `smoke` joined at Phase 10 and `e2e` at Phase 12,
+# which is what ADR 0009 said would happen — so `verify` and `verify-full` are
+# now the same recipe and that ADR is history.
+verify: fmt lint types test test-leak smoke e2e budget
+
+# Kept as an alias so muscle memory and any existing CI invocation still work.
+verify-full: verify
 
 # Regenerate the feature data dictionary from the registry (§7.1).
 # The command writes the file itself rather than relying on shell redirection,

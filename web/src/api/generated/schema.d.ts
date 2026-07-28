@@ -4,3505 +4,3493 @@
  */
 
 export interface paths {
-    "/api/v1/datasets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List catalogued datasets
-         * @description List every dataset in the lake.
-         *
-         *     Args:
-         *         settings: Service settings.
-         *
-         *     Returns:
-         *         The catalog rows.
-         */
-        get: operations["listDatasets"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/datasets/{dataset_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * One dataset with its quality report
-         * @description Read one dataset's catalog row and quality report.
-         *
-         *     Args:
-         *         dataset_id: Identifier such as `csv:SYNTH:1d`.
-         *         settings: Service settings.
-         *
-         *     Returns:
-         *         The dataset and its quality report.
-         *
-         *     Raises:
-         *         Problem: With 404 if the dataset is not catalogued.
-         */
-        get: operations["getDataset"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Service health and provenance
-         * @description Report the service version, revision, and artifact store.
-         *
-         *     Args:
-         *         store: The artifact store.
-         *
-         *     Returns:
-         *         The health document. The git revision is included because a number
-         *         served by an unknown build is a number nobody can reproduce.
-         */
-        get: operations["getHealth"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/jobs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List jobs
-         * @description List jobs, newest first.
-         *
-         *     Args:
-         *         store: The job store.
-         *         response: The response, for cache headers.
-         *         job_status: Optional status filter.
-         *         limit: Page size.
-         *
-         *     Returns:
-         *         The jobs.
-         */
-        get: operations["listJobs"];
-        put?: never;
-        /**
-         * Submit a job
-         * @description Queue a job.
-         *
-         *     Args:
-         *         submission: The job type and the config to run it with.
-         *         runner: The job runner.
-         *         settings: Service settings.
-         *         response: The response, for `Location` and cache headers.
-         *
-         *     Returns:
-         *         The queued job, with `202 Accepted` and a `Location` pointing at it.
-         *
-         *     Raises:
-         *         Problem: With 422 if the config file does not exist. Failing here rather
-         *             than in the worker means the caller learns about a typo now instead
-         *             of from a job that dies two seconds later.
-         */
-        post: operations["createJob"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/jobs/{job_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * One job's state
-         * @description Read one job.
-         *
-         *     Args:
-         *         job_id: The job id.
-         *         store: The job store.
-         *         response: The response, for cache headers.
-         *
-         *     Returns:
-         *         The job.
-         */
-        get: operations["getJob"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/jobs/{job_id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Ask a running job to stop
-         * @description Request cancellation.
-         *
-         *     Cancellation is cooperative: a running job stops at its next phase boundary
-         *     and its run directory is finalised as `cancelled` rather than killed
-         *     mid-write (§14.2).
-         *
-         *     Args:
-         *         job_id: The job id.
-         *         runner: The job runner.
-         *         response: The response, for cache headers.
-         *
-         *     Returns:
-         *         The updated job.
-         *
-         *     Raises:
-         *         Problem: With 404 if no such job exists, or 409 if it already finished.
-         */
-        post: operations["cancelJob"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/jobs/{job_id}/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Live log and progress stream
-         * @description Stream a job's log lines and progress until it finishes.
-         *
-         *     Resumable: the browser replays `Last-Event-ID` on reconnect and the stream
-         *     picks up from the line after it, so a dropped connection does not lose the
-         *     middle of a run's log.
-         *
-         *     Args:
-         *         job_id: The job id.
-         *         store: The job store.
-         *         request: The request, for `Last-Event-ID` and disconnect detection.
-         *
-         *     Returns:
-         *         The event stream.
-         *
-         *     Raises:
-         *         Problem: With 404 if no such job exists.
-         */
-        get: operations["streamJobEvents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/runs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Paginated run index
-         * @description List runs, newest first.
-         *
-         *     Args:
-         *         store: The artifact store.
-         *         symbol: Optional symbol filter.
-         *         run_status: Optional status filter.
-         *         limit: Page size.
-         *         cursor: Opaque cursor from a previous page.
-         *
-         *     Returns:
-         *         A page of the index. Runs that failed before writing a tearsheet are
-         *         included with `has_tearsheet: false` — a failed run is a fact about the
-         *         research, and hiding it would make the index a highlight reel.
-         */
-        get: operations["listRuns"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/runs/compare": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Two runs side by side
-         * @description Compare two runs' headline metrics and provenance.
-         *
-         *     Args:
-         *         store: The artifact store.
-         *         a: First run id.
-         *         b: Second run id.
-         *
-         *     Returns:
-         *         Both index rows, the metric deltas, and whether the two share a config
-         *         or data hash. Identical hashes are worth saying out loud: any difference
-         *         between the runs then came from the code, not the configuration.
-         *
-         *     Raises:
-         *         Problem: With 404 if either run is missing.
-         */
-        get: operations["compareRuns"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/runs/{run_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The run's tearsheet
-         * @description Serve `tearsheet.json`, the canonical result artifact (§11.4).
-         *
-         *     Args:
-         *         run: The run directory.
-         *         request: The request, for `If-None-Match`.
-         *         response: The response, for cache headers.
-         *
-         *     Returns:
-         *         The validated tearsheet, or a 304.
-         */
-        get: operations["getRun"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/runs/{run_id}/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Resolved configuration
-         * @description Serve the resolved config and its diff against the packaged defaults.
-         *
-         *     Args:
-         *         run: The run directory.
-         *         request: The request, for `If-None-Match`.
-         *         response: The response, for cache headers.
-         *
-         *     Returns:
-         *         The config document, or a 304.
-         *
-         *     Raises:
-         *         Problem: With 404 if the run has no resolved config.
-         */
-        get: operations["getRunConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/runs/{run_id}/export/{artifact}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Download one artifact
-         * @description Download a run artifact at full resolution.
-         *
-         *     Args:
-         *         run: The run directory.
-         *         artifact: Artifact name, e.g. `tearsheet.json` or `equity.parquet`.
-         *
-         *     Returns:
-         *         The file.
-         *
-         *     Raises:
-         *         Problem: With 404 if the artifact does not exist, or 400 if the name is
-         *             not an artifact this service will serve.
-         */
-        get: operations["exportRunArtifact"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/runs/{run_id}/folds": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Split definitions
-         * @description Serve the fold definitions and their per-fold spans.
-         *
-         *     Args:
-         *         run: The run directory.
-         *         request: The request, for `If-None-Match`.
-         *         response: The response, for cache headers.
-         *
-         *     Returns:
-         *         The folds, or a 304.
-         *
-         *     Raises:
-         *         Problem: With 404 if the run has no folds.
-         */
-        get: operations["getRunFolds"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/runs/{run_id}/leaderboard": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Ranked leaderboard
-         * @description Serve the leaderboard from the tearsheet.
-         *
-         *     Args:
-         *         run: The run directory.
-         *         request: The request, for `If-None-Match`.
-         *         response: The response, for cache headers.
-         *
-         *     Returns:
-         *         The leaderboard, or a 304.
-         */
-        get: operations["getRunLeaderboard"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/runs/{run_id}/predictions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Paginated out-of-fold predictions
-         * @description Serve out-of-fold predictions, paginated.
-         *
-         *     Args:
-         *         run: The run directory.
-         *         fold: Optional fold filter.
-         *         limit: Page size.
-         *         cursor: Opaque cursor.
-         *
-         *     Returns:
-         *         A page of predictions.
-         *
-         *     Raises:
-         *         Problem: With 404 if the run has no predictions.
-         */
-        get: operations["getRunPredictions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/runs/{run_id}/research": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The generated research note
-         * @description Serve `research.md` as text.
-         *
-         *     Args:
-         *         run: The run directory.
-         *
-         *     Returns:
-         *         The markdown, under a `markdown` key so the response stays JSON and the
-         *         generated client stays typed.
-         *
-         *     Raises:
-         *         Problem: With 404 if the run has no note.
-         */
-        get: operations["getRunResearchNote"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/runs/{run_id}/series/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Plottable series
-         * @description Serve a series, downsampled server-side with LTTB.
-         *
-         *     Args:
-         *         run: The run directory.
-         *         name: One of `equity`, `drawdown`, `rolling_sharpe`, `trades`,
-         *             `predictions`, `ledger`.
-         *         request: The request, for `If-None-Match`.
-         *         response: The response, for cache headers.
-         *         width: Target point count.
-         *
-         *     Returns:
-         *         The series, or a 304.
-         *
-         *     Raises:
-         *         Problem: With 404 for an unknown series name or a missing artifact.
-         */
-        get: operations["getRunSeries"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/runs/{run_id}/shap/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * SHAP summary
-         * @description Serve the SHAP summary frame.
-         *
-         *     Args:
-         *         run: The run directory.
-         *
-         *     Returns:
-         *         Mean absolute contribution per feature.
-         *
-         *     Raises:
-         *         Problem: With 404 when the run has no SHAP artifact, naming why — only
-         *             tree models are explained (§9), and the smoke config selects a
-         *             baseline.
-         */
-        get: operations["getRunShapSummary"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/runs/{run_id}/trades": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Paginated trade blotter
-         * @description Serve the trade blotter, paginated.
-         *
-         *     Args:
-         *         run: The run directory.
-         *         limit: Page size.
-         *         cursor: Opaque cursor.
-         *
-         *     Returns:
-         *         A page of trades.
-         */
-        get: operations["getRunTrades"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/system/config/schema": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * JSON schema for an experiment configuration
-         * @description Serve the JSON schema for `AlphaConfig`.
-         *
-         *     Returns:
-         *         The schema pydantic generates from the config models themselves, so the
-         *         UI cannot render a form that disagrees with what the loader accepts.
-         */
-        get: operations["getConfigSchema"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
+  '/api/v1/datasets': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List catalogued datasets
+     * @description List every dataset in the lake.
+     *
+     *     Args:
+     *         settings: Service settings.
+     *
+     *     Returns:
+     *         The catalog rows.
+     */
+    get: operations['listDatasets']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/datasets/{dataset_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * One dataset with its quality report
+     * @description Read one dataset's catalog row and quality report.
+     *
+     *     Args:
+     *         dataset_id: Identifier such as `csv:SYNTH:1d`.
+     *         settings: Service settings.
+     *
+     *     Returns:
+     *         The dataset and its quality report.
+     *
+     *     Raises:
+     *         Problem: With 404 if the dataset is not catalogued.
+     */
+    get: operations['getDataset']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/health': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Service health and provenance
+     * @description Report the service version, revision, and artifact store.
+     *
+     *     Args:
+     *         store: The artifact store.
+     *
+     *     Returns:
+     *         The health document. The git revision is included because a number
+     *         served by an unknown build is a number nobody can reproduce.
+     */
+    get: operations['getHealth']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/jobs': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List jobs
+     * @description List jobs, newest first.
+     *
+     *     Args:
+     *         store: The job store.
+     *         response: The response, for cache headers.
+     *         job_status: Optional status filter.
+     *         limit: Page size.
+     *
+     *     Returns:
+     *         The jobs.
+     */
+    get: operations['listJobs']
+    put?: never
+    /**
+     * Submit a job
+     * @description Queue a job.
+     *
+     *     Args:
+     *         submission: The job type and the config to run it with.
+     *         runner: The job runner.
+     *         settings: Service settings.
+     *         response: The response, for `Location` and cache headers.
+     *
+     *     Returns:
+     *         The queued job, with `202 Accepted` and a `Location` pointing at it.
+     *
+     *     Raises:
+     *         Problem: With 422 if the config file does not exist. Failing here rather
+     *             than in the worker means the caller learns about a typo now instead
+     *             of from a job that dies two seconds later.
+     */
+    post: operations['createJob']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/jobs/{job_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * One job's state
+     * @description Read one job.
+     *
+     *     Args:
+     *         job_id: The job id.
+     *         store: The job store.
+     *         response: The response, for cache headers.
+     *
+     *     Returns:
+     *         The job.
+     */
+    get: operations['getJob']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/jobs/{job_id}/cancel': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Ask a running job to stop
+     * @description Request cancellation.
+     *
+     *     Cancellation is cooperative: a running job stops at its next phase boundary
+     *     and its run directory is finalised as `cancelled` rather than killed
+     *     mid-write (§14.2).
+     *
+     *     Args:
+     *         job_id: The job id.
+     *         runner: The job runner.
+     *         response: The response, for cache headers.
+     *
+     *     Returns:
+     *         The updated job.
+     *
+     *     Raises:
+     *         Problem: With 404 if no such job exists, or 409 if it already finished.
+     */
+    post: operations['cancelJob']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/jobs/{job_id}/events': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Live log and progress stream
+     * @description Stream a job's log lines and progress until it finishes.
+     *
+     *     Resumable: the browser replays `Last-Event-ID` on reconnect and the stream
+     *     picks up from the line after it, so a dropped connection does not lose the
+     *     middle of a run's log.
+     *
+     *     Args:
+     *         job_id: The job id.
+     *         store: The job store.
+     *         request: The request, for `Last-Event-ID` and disconnect detection.
+     *
+     *     Returns:
+     *         The event stream.
+     *
+     *     Raises:
+     *         Problem: With 404 if no such job exists.
+     */
+    get: operations['streamJobEvents']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/runs': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Paginated run index
+     * @description List runs, newest first.
+     *
+     *     Args:
+     *         store: The artifact store.
+     *         symbol: Optional symbol filter.
+     *         run_status: Optional status filter.
+     *         limit: Page size.
+     *         cursor: Opaque cursor from a previous page.
+     *
+     *     Returns:
+     *         A page of the index. Runs that failed before writing a tearsheet are
+     *         included with `has_tearsheet: false` — a failed run is a fact about the
+     *         research, and hiding it would make the index a highlight reel.
+     */
+    get: operations['listRuns']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/runs/compare': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Two runs side by side
+     * @description Compare two runs' headline metrics and provenance.
+     *
+     *     Args:
+     *         store: The artifact store.
+     *         a: First run id.
+     *         b: Second run id.
+     *
+     *     Returns:
+     *         Both index rows, the metric deltas, and whether the two share a config
+     *         or data hash. Identical hashes are worth saying out loud: any difference
+     *         between the runs then came from the code, not the configuration.
+     *
+     *     Raises:
+     *         Problem: With 404 if either run is missing.
+     */
+    get: operations['compareRuns']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/runs/{run_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * The run's tearsheet
+     * @description Serve `tearsheet.json`, the canonical result artifact (§11.4).
+     *
+     *     Args:
+     *         run: The run directory.
+     *         request: The request, for `If-None-Match`.
+     *         response: The response, for cache headers.
+     *
+     *     Returns:
+     *         The validated tearsheet, or a 304.
+     */
+    get: operations['getRun']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/runs/{run_id}/config': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Resolved configuration
+     * @description Serve the resolved config and its diff against the packaged defaults.
+     *
+     *     Args:
+     *         run: The run directory.
+     *         request: The request, for `If-None-Match`.
+     *         response: The response, for cache headers.
+     *
+     *     Returns:
+     *         The config document, or a 304.
+     *
+     *     Raises:
+     *         Problem: With 404 if the run has no resolved config.
+     */
+    get: operations['getRunConfig']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/runs/{run_id}/export/{artifact}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Download one artifact
+     * @description Download a run artifact at full resolution.
+     *
+     *     Args:
+     *         run: The run directory.
+     *         artifact: Artifact name, e.g. `tearsheet.json` or `equity.parquet`.
+     *
+     *     Returns:
+     *         The file.
+     *
+     *     Raises:
+     *         Problem: With 404 if the artifact does not exist, or 400 if the name is
+     *             not an artifact this service will serve.
+     */
+    get: operations['exportRunArtifact']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/runs/{run_id}/folds': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Split definitions
+     * @description Serve the fold definitions and their per-fold spans.
+     *
+     *     Args:
+     *         run: The run directory.
+     *         request: The request, for `If-None-Match`.
+     *         response: The response, for cache headers.
+     *
+     *     Returns:
+     *         The folds, or a 304.
+     *
+     *     Raises:
+     *         Problem: With 404 if the run has no folds.
+     */
+    get: operations['getRunFolds']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/runs/{run_id}/leaderboard': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Ranked leaderboard
+     * @description Serve the leaderboard from the tearsheet.
+     *
+     *     Args:
+     *         run: The run directory.
+     *         request: The request, for `If-None-Match`.
+     *         response: The response, for cache headers.
+     *
+     *     Returns:
+     *         The leaderboard, or a 304.
+     */
+    get: operations['getRunLeaderboard']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/runs/{run_id}/predictions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Paginated out-of-fold predictions
+     * @description Serve out-of-fold predictions, paginated.
+     *
+     *     Args:
+     *         run: The run directory.
+     *         fold: Optional fold filter.
+     *         limit: Page size.
+     *         cursor: Opaque cursor.
+     *
+     *     Returns:
+     *         A page of predictions.
+     *
+     *     Raises:
+     *         Problem: With 404 if the run has no predictions.
+     */
+    get: operations['getRunPredictions']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/runs/{run_id}/research': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * The generated research note
+     * @description Serve `research.md` as text.
+     *
+     *     Args:
+     *         run: The run directory.
+     *
+     *     Returns:
+     *         The markdown, under a `markdown` key so the response stays JSON and the
+     *         generated client stays typed.
+     *
+     *     Raises:
+     *         Problem: With 404 if the run has no note.
+     */
+    get: operations['getRunResearchNote']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/runs/{run_id}/series/{name}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Plottable series
+     * @description Serve a series, downsampled server-side with LTTB.
+     *
+     *     Args:
+     *         run: The run directory.
+     *         name: One of `equity`, `drawdown`, `rolling_sharpe`, `trades`,
+     *             `predictions`, `ledger`.
+     *         request: The request, for `If-None-Match`.
+     *         response: The response, for cache headers.
+     *         width: Target point count.
+     *
+     *     Returns:
+     *         The series, or a 304.
+     *
+     *     Raises:
+     *         Problem: With 404 for an unknown series name or a missing artifact.
+     */
+    get: operations['getRunSeries']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/runs/{run_id}/shap/summary': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * SHAP summary
+     * @description Serve the SHAP summary frame.
+     *
+     *     Args:
+     *         run: The run directory.
+     *
+     *     Returns:
+     *         Mean absolute contribution per feature.
+     *
+     *     Raises:
+     *         Problem: With 404 when the run has no SHAP artifact, naming why — only
+     *             tree models are explained (§9), and the smoke config selects a
+     *             baseline.
+     */
+    get: operations['getRunShapSummary']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/runs/{run_id}/trades': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Paginated trade blotter
+     * @description Serve the trade blotter, paginated.
+     *
+     *     Args:
+     *         run: The run directory.
+     *         limit: Page size.
+     *         cursor: Opaque cursor.
+     *
+     *     Returns:
+     *         A page of trades.
+     */
+    get: operations['getRunTrades']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/system/config/schema': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * JSON schema for an experiment configuration
+     * @description Serve the JSON schema for `AlphaConfig`.
+     *
+     *     Returns:
+     *         The schema pydantic generates from the config models themselves, so the
+     *         UI cannot render a form that disagrees with what the loader accepts.
+     */
+    get: operations['getConfigSchema']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
-export type webhooks = Record<string, never>;
+export type webhooks = Record<string, never>
 export interface components {
-    schemas: {
-        /**
-         * BacktestSection
-         * @description Backtest results and the cost sensitivity curve.
-         */
-        BacktestSection: {
-            /** Break Even Bps */
-            break_even_bps?: number | null;
-            /**
-             * Cost Sensitivity
-             * @default []
-             */
-            cost_sensitivity: {
-                [key: string]: number;
-            }[];
-            /** Kill Switch */
-            kill_switch?: {
-                [key: string]: unknown;
-            } | null;
-            /** Metrics */
-            metrics?: {
-                [key: string]: number;
-            };
-            /** Round Trip Bps */
-            round_trip_bps?: number | null;
-            /** Series Refs */
-            series_refs?: {
-                [key: string]: string;
-            };
-            /** Trade Metrics */
-            trade_metrics?: {
-                [key: string]: number;
-            };
-        };
-        /**
-         * CVSection
-         * @description The validation scheme and its folds.
-         */
-        CVSection: {
-            /** Embargo Pct */
-            embargo_pct: number;
-            /**
-             * Folds
-             * @default []
-             */
-            folds: components["schemas"]["FoldSection"][];
-            /** Scheme */
-            scheme: string;
-        };
-        /**
-         * CompareResponse
-         * @description Two runs side by side (§13.4, `/compare`).
-         */
-        CompareResponse: {
-            a: components["schemas"]["RunSummaryRow"];
-            b: components["schemas"]["RunSummaryRow"];
-            /** Config Identical */
-            config_identical: boolean;
-            /** Data Identical */
-            data_identical: boolean;
-            /** Metric Deltas */
-            metric_deltas: {
-                [key: string]: {
-                    [key: string]: number | null;
-                };
-            };
-        };
-        /**
-         * ConfigResponse
-         * @description The resolved config, and how it differs from the packaged defaults.
-         */
-        ConfigResponse: {
-            /** Config Hash */
-            config_hash: string;
-            /** Config Yaml */
-            config_yaml: string;
-            /**
-             * Diff Vs Defaults
-             * @description Flattened `path -> {run, default}` for every value that differs.
-             */
-            diff_vs_defaults: {
-                [key: string]: unknown;
-            };
-            /** Run Id */
-            run_id: string;
-        };
-        /**
-         * DatasetDetail
-         * @description One dataset and the quality verdict on it.
-         */
-        DatasetDetail: {
-            dataset: components["schemas"]["DatasetRecord"];
-            /**
-             * Quality
-             * @description The stored quality report (§6.4), or null when the dataset predates one. Null is not a pass.
-             */
-            quality?: {
-                [key: string]: unknown;
-            } | null;
-        };
-        /**
-         * DatasetList
-         * @description Every catalogued dataset.
-         */
-        DatasetList: {
-            /** Datasets */
-            datasets: components["schemas"]["DatasetRecord"][];
-            /** Total */
-            total: number;
-        };
-        /**
-         * DatasetRecord
-         * @description One row of the catalog: a dataset as ingested at a point in time.
-         */
-        DatasetRecord: {
-            /** Adjustment */
-            adjustment: string;
-            /** Calendar */
-            calendar: string;
-            /** Content Hash */
-            content_hash: string;
-            /** Dataset Id */
-            dataset_id: string;
-            /**
-             * End Ts
-             * Format: date-time
-             */
-            end_ts: string;
-            /**
-             * Ingested At
-             * Format: date-time
-             */
-            ingested_at: string;
-            /** Interval */
-            interval: string;
-            /** N Rows */
-            n_rows: number;
-            /** Provider */
-            provider: string;
-            /** Provider Version */
-            provider_version?: string | null;
-            /** Quality Status */
-            quality_status: string;
-            /** Quality Summary */
-            quality_summary?: string | null;
-            /**
-             * Start Ts
-             * Format: date-time
-             */
-            start_ts: string;
-            /** Symbol */
-            symbol: string;
-        };
-        /**
-         * DatasetSection
-         * @description What data the run was computed on.
-         */
-        DatasetSection: {
-            /** Calendar */
-            calendar: string;
-            /** Interval */
-            interval: string;
-            /** N Bars */
-            n_bars: number;
-            /**
-             * Periods Per Year
-             * @description Bars per year used for every annualised metric. Recorded because a Sharpe with an undocumented annualisation is unfalsifiable (§11.1).
-             */
-            periods_per_year: number;
-            /** Quality */
-            quality: string;
-            /** Quality Report Ref */
-            quality_report_ref?: string | null;
-            /** Span */
-            span: [
-                string,
-                string
-            ];
-            /** Symbols */
-            symbols: string[];
-        };
-        /**
-         * ExplainSection
-         * @description Pointers to the SHAP artifacts (§9).
-         */
-        ExplainSection: {
-            /**
-             * N Explained
-             * @default 0
-             */
-            n_explained: number;
-            /** Shap Summary Ref */
-            shap_summary_ref?: string | null;
-            /**
-             * Top Features
-             * @default []
-             */
-            top_features: string[];
-        };
-        /**
-         * FeaturesSection
-         * @description How many features were built and how many survived pruning.
-         */
-        FeaturesSection: {
-            /** Families */
-            families?: {
-                [key: string]: number;
-            };
-            /** Manifest Ref */
-            manifest_ref?: string | null;
-            /** Max Lookback */
-            max_lookback: number;
-            /** N After Prune */
-            n_after_prune: number;
-            /** N Built */
-            n_built: number;
-        };
-        /**
-         * FoldSection
-         * @description One cross-validation fold, as the Fold Strip draws it (§13.2).
-         */
-        FoldSection: {
-            /** Embargoed */
-            embargoed: number;
-            /** Fold */
-            fold: number;
-            /** N Test */
-            n_test: number;
-            /** N Train */
-            n_train: number;
-            /** Purged */
-            purged: number;
-            /** Test Span */
-            test_span: [
-                string,
-                string
-            ];
-            /** Train Span */
-            train_span: [
-                string,
-                string
-            ];
-        };
-        /**
-         * FoldsResponse
-         * @description Split definitions with their per-fold metrics.
-         */
-        FoldsResponse: {
-            /** Embargo Pct */
-            embargo_pct?: number | null;
-            /** Folds */
-            folds: {
-                [key: string]: unknown;
-            }[];
-            /** Scheme */
-            scheme?: string | null;
-        };
-        /**
-         * Health
-         * @description What the service is and what it is reading.
-         */
-        Health: {
-            /** Alphacore Version */
-            alphacore_version: string;
-            /** Alphaservice Version */
-            alphaservice_version: string;
-            /**
-             * Artifact Store
-             * @description Absolute path to the runs directory.
-             */
-            artifact_store: string;
-            /**
-             * Git Sha
-             * @description Code revision, `-dirty` suffixed when uncommitted.
-             */
-            git_sha: string | null;
-            /**
-             * N Runs
-             * @description Runs currently on disk.
-             */
-            n_runs: number;
-            /**
-             * Status
-             * @description `ok` when the service can read its artifact store.
-             */
-            status: string;
-        };
-        /**
-         * JobList
-         * @description Jobs, newest first.
-         */
-        JobList: {
-            /** Jobs */
-            jobs: components["schemas"]["JobOut"][];
-            /** Total */
-            total: number;
-        };
-        /**
-         * JobOut
-         * @description A job as the API reports it.
-         */
-        JobOut: {
-            /** Cancel Requested */
-            cancel_requested: boolean;
-            /** Config Ref */
-            config_ref: string;
-            /** Created At */
-            created_at: string;
-            /** Duration S */
-            duration_s?: number | null;
-            /** Error */
-            error?: string | null;
-            /** Finished At */
-            finished_at?: string | null;
-            /** Job Id */
-            job_id: string;
-            progress: components["schemas"]["JobProgressOut"];
-            /** Run Id */
-            run_id?: string | null;
-            /** Started At */
-            started_at?: string | null;
-            status: components["schemas"]["JobStatus"];
-            type: components["schemas"]["JobType"];
-        };
-        /**
-         * JobProgressOut
-         * @description Structured progress (§14.2).
-         */
-        JobProgressOut: {
-            /**
-             * Fraction
-             * @description Null when the total is unknown — not zero.
-             */
-            fraction?: number | null;
-            /** Message */
-            message: string;
-            /** Phase */
-            phase: string;
-            /** Step */
-            step: number;
-            /** Total */
-            total: number;
-        };
-        /**
-         * JobStatus
-         * @description Lifecycle state of a job.
-         * @enum {string}
-         */
-        JobStatus: "queued" | "running" | "completed" | "failed" | "cancelled";
-        /**
-         * JobSubmission
-         * @description What `POST /jobs` accepts.
-         */
-        JobSubmission: {
-            /**
-             * Config Ref
-             * @description Path to the experiment YAML, resolved on the server's filesystem.
-             */
-            config_ref: string;
-            /** @description Which stage to run. */
-            type: components["schemas"]["JobType"];
-        };
-        /**
-         * JobType
-         * @description What a job runs (§14.1).
-         *
-         *     The set is closed: `POST /jobs` with an unknown type is a client error, not
-         *     an invitation to run something the service cannot describe.
-         * @enum {string}
-         */
-        JobType: "ingest" | "features" | "train" | "backtest" | "full_run";
-        /**
-         * LabelsSection
-         * @description What the model was asked to predict.
-         */
-        LabelsSection: {
-            /** Binarised */
-            binarised?: string | null;
-            /** Class Balance */
-            class_balance?: {
-                [key: string]: number;
-            };
-            /** Horizon Bars */
-            horizon_bars: number;
-            /** Mean Uniqueness */
-            mean_uniqueness?: number | null;
-            /** Method */
-            method: string;
-        };
-        /**
-         * LeaderboardResponse
-         * @description The leaderboard, ranked.
-         */
-        LeaderboardResponse: {
-            /** Rows */
-            rows: components["schemas"]["LeaderboardRow"][];
-            /** Run Id */
-            run_id: string;
-            /** Selected Model */
-            selected_model: string | null;
-        };
-        /**
-         * LeaderboardRow
-         * @description One leaderboard entry, as it appears in `tearsheet.json` (§11.4).
-         *
-         *     Defined here rather than in `report/` because the leaderboard is built
-         *     before the tearsheet exists. Phase 8 embeds this model in the tearsheet
-         *     schema rather than restating it, so the two cannot drift.
-         */
-        LeaderboardRow: {
-            /** Accuracy */
-            accuracy?: number | null;
-            /** Auc */
-            auc?: number | null;
-            /** Balanced Accuracy */
-            balanced_accuracy?: number | null;
-            /** Break Even Bps */
-            break_even_bps?: number | null;
-            /** Brier */
-            brier?: number | null;
-            /** Dsr */
-            dsr?: number | null;
-            /** Error */
-            error?: string | null;
-            /** F1 */
-            f1?: number | null;
-            /** Flags */
-            flags?: string[];
-            /** Ic */
-            ic?: number | null;
-            /** Ic Tstat */
-            ic_tstat?: number | null;
-            /** Log Loss */
-            log_loss?: number | null;
-            /** Max Drawdown */
-            max_drawdown?: number | null;
-            /** Model */
-            model: string;
-            /** N Folds */
-            n_folds: number;
-            /** N Predictions */
-            n_predictions: number;
-            /**
-             * N Trials
-             * @description Configurations evaluated for this row. The N in the deflated Sharpe haircut (§11.2); collected automatically because a hand-entered trial count is self-deception (§10.4).
-             */
-            n_trials: number;
-            /** Oos Net Sharpe */
-            oos_net_sharpe?: number | null;
-            /** Pr Auc */
-            pr_auc?: number | null;
-            /** Precision */
-            precision?: number | null;
-            /** Psr */
-            psr?: number | null;
-            /** Rank */
-            rank: number;
-            /** Recall */
-            recall?: number | null;
-            /** Sharpe Ci */
-            sharpe_ci?: [
-                number,
-                number
-            ] | null;
-        };
-        /**
-         * ManifestSection
-         * @description Provenance: what produced this result.
-         */
-        ManifestSection: {
-            /** Code Version */
-            code_version?: string | null;
-            /** Config Hash */
-            config_hash: string;
-            /** Data Hash */
-            data_hash?: string | null;
-            /** Duration S */
-            duration_s?: number | null;
-            /** Host */
-            host?: string | null;
-            /** Packages */
-            packages?: {
-                [key: string]: string;
-            };
-            /** Python */
-            python: string;
-            /** Seed */
-            seed: number;
-        };
-        /**
-         * OverfittingSection
-         * @description The honesty section (§11.3).
-         *
-         *     `pbo > 0.5` means the selection process performs worse than chance, and
-         *     §11.3 requires that to be stated in plain language rather than left as a
-         *     number for the reader to interpret.
-         */
-        OverfittingSection: {
-            /** Median Logit */
-            median_logit?: number | null;
-            /**
-             * N Configs Evaluated
-             * @default 0
-             */
-            n_configs_evaluated: number;
-            /**
-             * N Splits
-             * @default 0
-             */
-            n_splits: number;
-            /** Pbo */
-            pbo?: number | null;
-            /** Shuffled Label Ic */
-            shuffled_label_ic?: number | null;
-            /** Shuffled Label Sharpe */
-            shuffled_label_sharpe?: number | null;
-        };
-        /**
-         * ProblemDocument
-         * @description An RFC 9457 problem, as it appears in the OpenAPI document.
-         *
-         *     Declared as a model so the generated TypeScript client has a type for the
-         *     error branch. A client that types errors as `unknown` pushes every caller
-         *     into `catch (e: any)`.
-         */
-        ProblemDocument: {
+  schemas: {
+    /**
+     * BacktestSection
+     * @description Backtest results and the cost sensitivity curve.
+     */
+    BacktestSection: {
+      /** Break Even Bps */
+      break_even_bps?: number | null
+      /**
+       * Cost Sensitivity
+       * @default []
+       */
+      cost_sensitivity: {
+        [key: string]: number
+      }[]
+      /** Kill Switch */
+      kill_switch?: {
+        [key: string]: unknown
+      } | null
+      /** Metrics */
+      metrics?: {
+        [key: string]: number
+      }
+      /** Round Trip Bps */
+      round_trip_bps?: number | null
+      /** Series Refs */
+      series_refs?: {
+        [key: string]: string
+      }
+      /** Trade Metrics */
+      trade_metrics?: {
+        [key: string]: number
+      }
+    }
+    /**
+     * CVSection
+     * @description The validation scheme and its folds.
+     */
+    CVSection: {
+      /** Embargo Pct */
+      embargo_pct: number
+      /**
+       * Folds
+       * @default []
+       */
+      folds: components['schemas']['FoldSection'][]
+      /** Scheme */
+      scheme: string
+    }
+    /**
+     * CompareResponse
+     * @description Two runs side by side (§13.4, `/compare`).
+     */
+    CompareResponse: {
+      a: components['schemas']['RunSummaryRow']
+      b: components['schemas']['RunSummaryRow']
+      /** Config Identical */
+      config_identical: boolean
+      /** Data Identical */
+      data_identical: boolean
+      /** Metric Deltas */
+      metric_deltas: {
+        [key: string]: {
+          [key: string]: number | null
+        }
+      }
+    }
+    /**
+     * ConfigResponse
+     * @description The resolved config, and how it differs from the packaged defaults.
+     */
+    ConfigResponse: {
+      /** Config Hash */
+      config_hash: string
+      /** Config Yaml */
+      config_yaml: string
+      /**
+       * Diff Vs Defaults
+       * @description Flattened `path -> {run, default}` for every value that differs.
+       */
+      diff_vs_defaults: {
+        [key: string]: unknown
+      }
+      /** Run Id */
+      run_id: string
+    }
+    /**
+     * DatasetDetail
+     * @description One dataset and the quality verdict on it.
+     */
+    DatasetDetail: {
+      dataset: components['schemas']['DatasetRecord']
+      /**
+       * Quality
+       * @description The stored quality report (§6.4), or null when the dataset predates one. Null is not a pass.
+       */
+      quality?: {
+        [key: string]: unknown
+      } | null
+    }
+    /**
+     * DatasetList
+     * @description Every catalogued dataset.
+     */
+    DatasetList: {
+      /** Datasets */
+      datasets: components['schemas']['DatasetRecord'][]
+      /** Total */
+      total: number
+    }
+    /**
+     * DatasetRecord
+     * @description One row of the catalog: a dataset as ingested at a point in time.
+     */
+    DatasetRecord: {
+      /** Adjustment */
+      adjustment: string
+      /** Calendar */
+      calendar: string
+      /** Content Hash */
+      content_hash: string
+      /** Dataset Id */
+      dataset_id: string
+      /**
+       * End Ts
+       * Format: date-time
+       */
+      end_ts: string
+      /**
+       * Ingested At
+       * Format: date-time
+       */
+      ingested_at: string
+      /** Interval */
+      interval: string
+      /** N Rows */
+      n_rows: number
+      /** Provider */
+      provider: string
+      /** Provider Version */
+      provider_version?: string | null
+      /** Quality Status */
+      quality_status: string
+      /** Quality Summary */
+      quality_summary?: string | null
+      /**
+       * Start Ts
+       * Format: date-time
+       */
+      start_ts: string
+      /** Symbol */
+      symbol: string
+    }
+    /**
+     * DatasetSection
+     * @description What data the run was computed on.
+     */
+    DatasetSection: {
+      /** Calendar */
+      calendar: string
+      /** Interval */
+      interval: string
+      /** N Bars */
+      n_bars: number
+      /**
+       * Periods Per Year
+       * @description Bars per year used for every annualised metric. Recorded because a Sharpe with an undocumented annualisation is unfalsifiable (§11.1).
+       */
+      periods_per_year: number
+      /** Quality */
+      quality: string
+      /** Quality Report Ref */
+      quality_report_ref?: string | null
+      /** Span */
+      span: [string, string]
+      /** Symbols */
+      symbols: string[]
+    }
+    /**
+     * ExplainSection
+     * @description Pointers to the SHAP artifacts (§9).
+     */
+    ExplainSection: {
+      /**
+       * N Explained
+       * @default 0
+       */
+      n_explained: number
+      /** Shap Summary Ref */
+      shap_summary_ref?: string | null
+      /**
+       * Top Features
+       * @default []
+       */
+      top_features: string[]
+    }
+    /**
+     * FeaturesSection
+     * @description How many features were built and how many survived pruning.
+     */
+    FeaturesSection: {
+      /** Families */
+      families?: {
+        [key: string]: number
+      }
+      /** Manifest Ref */
+      manifest_ref?: string | null
+      /** Max Lookback */
+      max_lookback: number
+      /** N After Prune */
+      n_after_prune: number
+      /** N Built */
+      n_built: number
+    }
+    /**
+     * FoldSection
+     * @description One cross-validation fold, as the Fold Strip draws it (§13.2).
+     */
+    FoldSection: {
+      /** Embargoed */
+      embargoed: number
+      /** Fold */
+      fold: number
+      /** N Test */
+      n_test: number
+      /** N Train */
+      n_train: number
+      /** Purged */
+      purged: number
+      /** Test Span */
+      test_span: [string, string]
+      /** Train Span */
+      train_span: [string, string]
+    }
+    /**
+     * FoldsResponse
+     * @description Split definitions with their per-fold metrics.
+     */
+    FoldsResponse: {
+      /** Embargo Pct */
+      embargo_pct?: number | null
+      /** Folds */
+      folds: {
+        [key: string]: unknown
+      }[]
+      /** Scheme */
+      scheme?: string | null
+    }
+    /**
+     * Health
+     * @description What the service is and what it is reading.
+     */
+    Health: {
+      /** Alphacore Version */
+      alphacore_version: string
+      /** Alphaservice Version */
+      alphaservice_version: string
+      /**
+       * Artifact Store
+       * @description Absolute path to the runs directory.
+       */
+      artifact_store: string
+      /**
+       * Git Sha
+       * @description Code revision, `-dirty` suffixed when uncommitted.
+       */
+      git_sha: string | null
+      /**
+       * N Runs
+       * @description Runs currently on disk.
+       */
+      n_runs: number
+      /**
+       * Status
+       * @description `ok` when the service can read its artifact store.
+       */
+      status: string
+    }
+    /**
+     * JobList
+     * @description Jobs, newest first.
+     */
+    JobList: {
+      /** Jobs */
+      jobs: components['schemas']['JobOut'][]
+      /** Total */
+      total: number
+    }
+    /**
+     * JobOut
+     * @description A job as the API reports it.
+     */
+    JobOut: {
+      /** Cancel Requested */
+      cancel_requested: boolean
+      /** Config Ref */
+      config_ref: string
+      /** Created At */
+      created_at: string
+      /** Duration S */
+      duration_s?: number | null
+      /** Error */
+      error?: string | null
+      /** Finished At */
+      finished_at?: string | null
+      /** Job Id */
+      job_id: string
+      progress: components['schemas']['JobProgressOut']
+      /** Run Id */
+      run_id?: string | null
+      /** Started At */
+      started_at?: string | null
+      status: components['schemas']['JobStatus']
+      type: components['schemas']['JobType']
+    }
+    /**
+     * JobProgressOut
+     * @description Structured progress (§14.2).
+     */
+    JobProgressOut: {
+      /**
+       * Fraction
+       * @description Null when the total is unknown — not zero.
+       */
+      fraction?: number | null
+      /** Message */
+      message: string
+      /** Phase */
+      phase: string
+      /** Step */
+      step: number
+      /** Total */
+      total: number
+    }
+    /**
+     * JobStatus
+     * @description Lifecycle state of a job.
+     * @enum {string}
+     */
+    JobStatus: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
+    /**
+     * JobSubmission
+     * @description What `POST /jobs` accepts.
+     */
+    JobSubmission: {
+      /**
+       * Config Ref
+       * @description Path to the experiment YAML, resolved on the server's filesystem.
+       */
+      config_ref: string
+      /** @description Which stage to run. */
+      type: components['schemas']['JobType']
+    }
+    /**
+     * JobType
+     * @description What a job runs (§14.1).
+     *
+     *     The set is closed: `POST /jobs` with an unknown type is a client error, not
+     *     an invitation to run something the service cannot describe.
+     * @enum {string}
+     */
+    JobType: 'ingest' | 'features' | 'train' | 'backtest' | 'full_run'
+    /**
+     * LabelsSection
+     * @description What the model was asked to predict.
+     */
+    LabelsSection: {
+      /** Binarised */
+      binarised?: string | null
+      /** Class Balance */
+      class_balance?: {
+        [key: string]: number
+      }
+      /** Horizon Bars */
+      horizon_bars: number
+      /** Mean Uniqueness */
+      mean_uniqueness?: number | null
+      /** Method */
+      method: string
+    }
+    /**
+     * LeaderboardResponse
+     * @description The leaderboard, ranked.
+     */
+    LeaderboardResponse: {
+      /** Rows */
+      rows: components['schemas']['LeaderboardRow'][]
+      /** Run Id */
+      run_id: string
+      /** Selected Model */
+      selected_model: string | null
+    }
+    /**
+     * LeaderboardRow
+     * @description One leaderboard entry, as it appears in `tearsheet.json` (§11.4).
+     *
+     *     Defined here rather than in `report/` because the leaderboard is built
+     *     before the tearsheet exists. Phase 8 embeds this model in the tearsheet
+     *     schema rather than restating it, so the two cannot drift.
+     */
+    LeaderboardRow: {
+      /** Accuracy */
+      accuracy?: number | null
+      /** Auc */
+      auc?: number | null
+      /** Balanced Accuracy */
+      balanced_accuracy?: number | null
+      /** Break Even Bps */
+      break_even_bps?: number | null
+      /** Brier */
+      brier?: number | null
+      /** Dsr */
+      dsr?: number | null
+      /** Error */
+      error?: string | null
+      /** F1 */
+      f1?: number | null
+      /** Flags */
+      flags?: string[]
+      /** Ic */
+      ic?: number | null
+      /** Ic Tstat */
+      ic_tstat?: number | null
+      /** Log Loss */
+      log_loss?: number | null
+      /** Max Drawdown */
+      max_drawdown?: number | null
+      /** Model */
+      model: string
+      /** N Folds */
+      n_folds: number
+      /** N Predictions */
+      n_predictions: number
+      /**
+       * N Trials
+       * @description Configurations evaluated for this row. The N in the deflated Sharpe haircut (§11.2); collected automatically because a hand-entered trial count is self-deception (§10.4).
+       */
+      n_trials: number
+      /** Oos Net Sharpe */
+      oos_net_sharpe?: number | null
+      /** Pr Auc */
+      pr_auc?: number | null
+      /** Precision */
+      precision?: number | null
+      /** Psr */
+      psr?: number | null
+      /** Rank */
+      rank: number
+      /** Recall */
+      recall?: number | null
+      /** Sharpe Ci */
+      sharpe_ci?: [number, number] | null
+    }
+    /**
+     * ManifestSection
+     * @description Provenance: what produced this result.
+     */
+    ManifestSection: {
+      /** Code Version */
+      code_version?: string | null
+      /** Config Hash */
+      config_hash: string
+      /** Data Hash */
+      data_hash?: string | null
+      /** Duration S */
+      duration_s?: number | null
+      /** Host */
+      host?: string | null
+      /** Packages */
+      packages?: {
+        [key: string]: string
+      }
+      /** Python */
+      python: string
+      /** Seed */
+      seed: number
+    }
+    /**
+     * OverfittingSection
+     * @description The honesty section (§11.3).
+     *
+     *     `pbo > 0.5` means the selection process performs worse than chance, and
+     *     §11.3 requires that to be stated in plain language rather than left as a
+     *     number for the reader to interpret.
+     */
+    OverfittingSection: {
+      /** Median Logit */
+      median_logit?: number | null
+      /**
+       * N Configs Evaluated
+       * @default 0
+       */
+      n_configs_evaluated: number
+      /**
+       * N Splits
+       * @default 0
+       */
+      n_splits: number
+      /** Pbo */
+      pbo?: number | null
+      /** Shuffled Label Ic */
+      shuffled_label_ic?: number | null
+      /** Shuffled Label Sharpe */
+      shuffled_label_sharpe?: number | null
+    }
+    /**
+     * ProblemDocument
+     * @description An RFC 9457 problem, as it appears in the OpenAPI document.
+     *
+     *     Declared as a model so the generated TypeScript client has a type for the
+     *     error branch. A client that types errors as `unknown` pushes every caller
+     *     into `catch (e: any)`.
+     */
+    ProblemDocument: {
+      /**
+       * Detail
+       * @description What went wrong this time, and where possible what to do.
+       */
+      detail: string
+      /**
+       * Instance
+       * @description The request path.
+       */
+      instance?: string | null
+      /**
+       * Status
+       * @description HTTP status code, repeated in the body per RFC 9457.
+       */
+      status: number
+      /**
+       * Title
+       * @description Short summary of the kind of problem.
+       */
+      title: string
+      /**
+       * Type
+       * @description Stable URI identifying the kind of problem.
+       */
+      type: string
+    } & {
+      [key: string]: unknown
+    }
+    /**
+     * RunPage
+     * @description A page of the run index.
+     */
+    RunPage: {
+      /**
+       * Next Cursor
+       * @description Pass as `cursor` for the next page. Null on the last page.
+       */
+      next_cursor?: string | null
+      /** Runs */
+      runs: components['schemas']['RunSummaryRow'][]
+      /**
+       * Total
+       * @description Runs matching the filter, across all pages.
+       */
+      total: number
+    }
+    /**
+     * RunSummaryRow
+     * @description One row of the run index — what `/` sorts and filters on (§13.4).
+     */
+    RunSummaryRow: {
+      /** Code Version */
+      code_version?: string | null
+      /** Config Hash */
+      config_hash: string
+      /** Created At */
+      created_at: string
+      /** Data Hash */
+      data_hash?: string | null
+      /** Dsr */
+      dsr?: number | null
+      /** Duration S */
+      duration_s?: number | null
+      /**
+       * Has Tearsheet
+       * @description False for a run that failed before writing one. Those rows still appear.
+       */
+      has_tearsheet: boolean
+      /** Interval */
+      interval?: string | null
+      /** Name */
+      name: string
+      /** Oos Net Sharpe */
+      oos_net_sharpe?: number | null
+      /** Pbo */
+      pbo?: number | null
+      /** Run Id */
+      run_id: string
+      /** Seed */
+      seed: number
+      /** Selected Model */
+      selected_model?: string | null
+      /** Span */
+      span?: string[]
+      /** Status */
+      status: string
+      /** Symbols */
+      symbols?: string[]
+      /** Warnings */
+      warnings?: string[]
+    }
+    /**
+     * SeriesResponse
+     * @description A downsampled series, ready to plot.
+     */
+    SeriesResponse: {
+      /** Columns */
+      columns: string[]
+      /** Downsampled */
+      downsampled: boolean
+      /** Index */
+      index: string[]
+      /**
+       * N Points
+       * @description Points returned.
+       */
+      n_points: number
+      /**
+       * N Source Points
+       * @description Points before downsampling.
+       */
+      n_source_points: number
+      /** Name */
+      name: string
+      /** Values */
+      values: {
+        [key: string]: number[]
+      }
+    }
+    /**
+     * ShapSummaryResponse
+     * @description Mean absolute SHAP contribution per feature.
+     */
+    ShapSummaryResponse: {
+      /** Features */
+      features: {
+        [key: string]: unknown
+      }[]
+      /** Model */
+      model: string | null
+      /** Run Id */
+      run_id: string
+    }
+    /**
+     * TablePage
+     * @description A page of a tabular artifact — trades, predictions.
+     */
+    TablePage: {
+      /** Next Cursor */
+      next_cursor?: string | null
+      /** Rows */
+      rows: {
+        [key: string]: unknown
+      }[]
+      /** Total */
+      total: number
+    }
+    /**
+     * Tearsheet
+     * @description The canonical run result (§11.4).
+     */
+    Tearsheet: {
+      backtest?: components['schemas']['BacktestSection'] | null
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      cv?: components['schemas']['CVSection'] | null
+      dataset: components['schemas']['DatasetSection']
+      /**
+       * Disclaimer
+       * @default Research output. Not investment advice.
+       */
+      disclaimer: string
+      explain?: components['schemas']['ExplainSection'] | null
+      features?: components['schemas']['FeaturesSection'] | null
+      labels?: components['schemas']['LabelsSection'] | null
+      /**
+       * Leaderboard
+       * @default []
+       */
+      leaderboard: components['schemas']['LeaderboardRow'][]
+      manifest: components['schemas']['ManifestSection']
+      overfitting?: components['schemas']['OverfittingSection']
+      /** Run Id */
+      run_id: string
+      /**
+       * Schema Version
+       * @default 1.0
+       */
+      schema_version: string
+      /** Selected Model */
+      selected_model?: string | null
+      /**
+       * Warnings
+       * @default []
+       */
+      warnings: string[]
+    }
+  }
+  responses: never
+  parameters: never
+  requestBodies: never
+  headers: never
+  pathItems: never
+}
+export type $defs = Record<string, never>
+export interface operations {
+  listDatasets: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['DatasetList']
+        }
+      }
+    }
+  }
+  getDataset: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        dataset_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['DatasetDetail']
+        }
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
             /**
              * Detail
              * @description What went wrong this time, and where possible what to do.
              */
-            detail: string;
+            detail: string
             /**
              * Instance
              * @description The request path.
              */
-            instance?: string | null;
+            instance?: string | null
             /**
              * Status
              * @description HTTP status code, repeated in the body per RFC 9457.
              */
-            status: number;
+            status: number
             /**
              * Title
              * @description Short summary of the kind of problem.
              */
-            title: string;
+            title: string
             /**
              * Type
              * @description Stable URI identifying the kind of problem.
              */
-            type: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * RunPage
-         * @description A page of the run index.
-         */
-        RunPage: {
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
             /**
-             * Next Cursor
-             * @description Pass as `cursor` for the next page. Null on the last page.
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
              */
-            next_cursor?: string | null;
-            /** Runs */
-            runs: components["schemas"]["RunSummaryRow"][];
+            detail: string
             /**
-             * Total
-             * @description Runs matching the filter, across all pages.
+             * Instance
+             * @description The request path.
              */
-            total: number;
-        };
-        /**
-         * RunSummaryRow
-         * @description One row of the run index — what `/` sorts and filters on (§13.4).
-         */
-        RunSummaryRow: {
-            /** Code Version */
-            code_version?: string | null;
-            /** Config Hash */
-            config_hash: string;
-            /** Created At */
-            created_at: string;
-            /** Data Hash */
-            data_hash?: string | null;
-            /** Dsr */
-            dsr?: number | null;
-            /** Duration S */
-            duration_s?: number | null;
+            instance?: string | null
             /**
-             * Has Tearsheet
-             * @description False for a run that failed before writing one. Those rows still appear.
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
              */
-            has_tearsheet: boolean;
-            /** Interval */
-            interval?: string | null;
-            /** Name */
-            name: string;
-            /** Oos Net Sharpe */
-            oos_net_sharpe?: number | null;
-            /** Pbo */
-            pbo?: number | null;
-            /** Run Id */
-            run_id: string;
-            /** Seed */
-            seed: number;
-            /** Selected Model */
-            selected_model?: string | null;
-            /** Span */
-            span?: string[];
-            /** Status */
-            status: string;
-            /** Symbols */
-            symbols?: string[];
-            /** Warnings */
-            warnings?: string[];
-        };
-        /**
-         * SeriesResponse
-         * @description A downsampled series, ready to plot.
-         */
-        SeriesResponse: {
-            /** Columns */
-            columns: string[];
-            /** Downsampled */
-            downsampled: boolean;
-            /** Index */
-            index: string[];
+            status: number
             /**
-             * N Points
-             * @description Points returned.
+             * Title
+             * @description Short summary of the kind of problem.
              */
-            n_points: number;
+            title: string
             /**
-             * N Source Points
-             * @description Points before downsampling.
+             * Type
+             * @description Stable URI identifying the kind of problem.
              */
-            n_source_points: number;
-            /** Name */
-            name: string;
-            /** Values */
-            values: {
-                [key: string]: number[];
-            };
-        };
-        /**
-         * ShapSummaryResponse
-         * @description Mean absolute SHAP contribution per feature.
-         */
-        ShapSummaryResponse: {
-            /** Features */
-            features: {
-                [key: string]: unknown;
-            }[];
-            /** Model */
-            model: string | null;
-            /** Run Id */
-            run_id: string;
-        };
-        /**
-         * TablePage
-         * @description A page of a tabular artifact — trades, predictions.
-         */
-        TablePage: {
-            /** Next Cursor */
-            next_cursor?: string | null;
-            /** Rows */
-            rows: {
-                [key: string]: unknown;
-            }[];
-            /** Total */
-            total: number;
-        };
-        /**
-         * Tearsheet
-         * @description The canonical run result (§11.4).
-         */
-        Tearsheet: {
-            backtest?: components["schemas"]["BacktestSection"] | null;
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  getHealth: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Health']
+        }
+      }
+    }
+  }
+  listJobs: {
+    parameters: {
+      query?: {
+        status?: components['schemas']['JobStatus'] | null
+        limit?: number
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['JobList']
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
             /**
-             * Created At
-             * Format: date-time
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
              */
-            created_at: string;
-            cv?: components["schemas"]["CVSection"] | null;
-            dataset: components["schemas"]["DatasetSection"];
+            detail: string
             /**
-             * Disclaimer
-             * @default Research output. Not investment advice.
+             * Instance
+             * @description The request path.
              */
-            disclaimer: string;
-            explain?: components["schemas"]["ExplainSection"] | null;
-            features?: components["schemas"]["FeaturesSection"] | null;
-            labels?: components["schemas"]["LabelsSection"] | null;
+            instance?: string | null
             /**
-             * Leaderboard
-             * @default []
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
              */
-            leaderboard: components["schemas"]["LeaderboardRow"][];
-            manifest: components["schemas"]["ManifestSection"];
-            overfitting?: components["schemas"]["OverfittingSection"];
-            /** Run Id */
-            run_id: string;
+            status: number
             /**
-             * Schema Version
-             * @default 1.0
+             * Title
+             * @description Short summary of the kind of problem.
              */
-            schema_version: string;
-            /** Selected Model */
-            selected_model?: string | null;
+            title: string
             /**
-             * Warnings
-             * @default []
+             * Type
+             * @description Stable URI identifying the kind of problem.
              */
-            warnings: string[];
-        };
-    };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
-}
-export type $defs = Record<string, never>;
-export interface operations {
-    listDatasets: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DatasetList"];
-                };
-            };
-        };
-    };
-    getDataset: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                dataset_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DatasetDetail"];
-                };
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    getHealth: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Health"];
-                };
-            };
-        };
-    };
-    listJobs: {
-        parameters: {
-            query?: {
-                status?: components["schemas"]["JobStatus"] | null;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JobList"];
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    createJob: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["JobSubmission"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JobOut"];
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    getJob: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JobOut"];
-                };
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    cancelJob: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JobOut"];
-                };
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    streamJobEvents: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description An SSE stream of `log`, `progress`, and one terminal `status` event. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/event-stream": string;
-                };
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    listRuns: {
-        parameters: {
-            query?: {
-                /** @description Only runs trading this symbol. */
-                symbol?: string | null;
-                /** @description Only runs with this manifest status. */
-                status?: string | null;
-                limit?: number;
-                /** @description Opaque cursor from a previous page. */
-                cursor?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RunPage"];
-                };
-            };
-            /** @description Bad request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    compareRuns: {
-        parameters: {
-            query: {
-                /** @description First run id. */
-                a: string;
-                /** @description Second run id. */
-                b: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CompareResponse"];
-                };
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    getRun: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Tearsheet"];
-                };
-            };
-            /** @description The client's cached representation is still current. */
-            304: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    getRunConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConfigResponse"];
-                };
-            };
-            /** @description The client's cached representation is still current. */
-            304: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    exportRunArtifact: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                artifact: string;
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Bad request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    getRunFolds: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FoldsResponse"];
-                };
-            };
-            /** @description The client's cached representation is still current. */
-            304: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    getRunLeaderboard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LeaderboardResponse"];
-                };
-            };
-            /** @description The client's cached representation is still current. */
-            304: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    getRunPredictions: {
-        parameters: {
-            query?: {
-                /** @description Restrict to one fold. */
-                fold?: number | null;
-                limit?: number;
-                cursor?: string | null;
-            };
-            header?: never;
-            path: {
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TablePage"];
-                };
-            };
-            /** @description Bad request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    getRunResearchNote: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
-                };
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    getRunSeries: {
-        parameters: {
-            query?: {
-                /** @description Target point count, normally chart pixels. */
-                width?: number;
-            };
-            header?: never;
-            path: {
-                name: string;
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SeriesResponse"];
-                };
-            };
-            /** @description The client's cached representation is still current. */
-            304: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    getRunShapSummary: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ShapSummaryResponse"];
-                };
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    getRunTrades: {
-        parameters: {
-            query?: {
-                limit?: number;
-                cursor?: string | null;
-            };
-            header?: never;
-            path: {
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TablePage"];
-                };
-            };
-            /** @description Bad request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Unprocessable request */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDocument"];
-                    "application/problem+json": {
-                        /**
-                         * Detail
-                         * @description What went wrong this time, and where possible what to do.
-                         */
-                        detail: string;
-                        /**
-                         * Instance
-                         * @description The request path.
-                         */
-                        instance?: string | null;
-                        /**
-                         * Status
-                         * @description HTTP status code, repeated in the body per RFC 9457.
-                         */
-                        status: number;
-                        /**
-                         * Title
-                         * @description Short summary of the kind of problem.
-                         */
-                        title: string;
-                        /**
-                         * Type
-                         * @description Stable URI identifying the kind of problem.
-                         */
-                        type: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    getConfigSchema: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Request failed */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  createJob: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['JobSubmission']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['JobOut']
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Request failed */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  getJob: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        job_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['JobOut']
+        }
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Request failed */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  cancelJob: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        job_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['JobOut']
+        }
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Request failed */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  streamJobEvents: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        job_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description An SSE stream of `log`, `progress`, and one terminal `status` event. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Request failed */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  listRuns: {
+    parameters: {
+      query?: {
+        /** @description Only runs trading this symbol. */
+        symbol?: string | null
+        /** @description Only runs with this manifest status. */
+        status?: string | null
+        limit?: number
+        /** @description Opaque cursor from a previous page. */
+        cursor?: string | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RunPage']
+        }
+      }
+      /** @description Bad request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  compareRuns: {
+    parameters: {
+      query: {
+        /** @description First run id. */
+        a: string
+        /** @description Second run id. */
+        b: string
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CompareResponse']
+        }
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  getRun: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        run_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Tearsheet']
+        }
+      }
+      /** @description The client's cached representation is still current. */
+      304: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  getRunConfig: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        run_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ConfigResponse']
+        }
+      }
+      /** @description The client's cached representation is still current. */
+      304: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  exportRunArtifact: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        artifact: string
+        run_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  getRunFolds: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        run_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['FoldsResponse']
+        }
+      }
+      /** @description The client's cached representation is still current. */
+      304: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  getRunLeaderboard: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        run_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['LeaderboardResponse']
+        }
+      }
+      /** @description The client's cached representation is still current. */
+      304: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  getRunPredictions: {
+    parameters: {
+      query?: {
+        /** @description Restrict to one fold. */
+        fold?: number | null
+        limit?: number
+        cursor?: string | null
+      }
+      header?: never
+      path: {
+        run_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TablePage']
+        }
+      }
+      /** @description Bad request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  getRunResearchNote: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        run_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            [key: string]: string
+          }
+        }
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  getRunSeries: {
+    parameters: {
+      query?: {
+        /** @description Target point count, normally chart pixels. */
+        width?: number
+      }
+      header?: never
+      path: {
+        name: string
+        run_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SeriesResponse']
+        }
+      }
+      /** @description The client's cached representation is still current. */
+      304: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  getRunShapSummary: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        run_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ShapSummaryResponse']
+        }
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  getRunTrades: {
+    parameters: {
+      query?: {
+        limit?: number
+        cursor?: string | null
+      }
+      header?: never
+      path: {
+        run_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TablePage']
+        }
+      }
+      /** @description Bad request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Unprocessable request */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProblemDocument']
+          'application/problem+json': {
+            /**
+             * Detail
+             * @description What went wrong this time, and where possible what to do.
+             */
+            detail: string
+            /**
+             * Instance
+             * @description The request path.
+             */
+            instance?: string | null
+            /**
+             * Status
+             * @description HTTP status code, repeated in the body per RFC 9457.
+             */
+            status: number
+            /**
+             * Title
+             * @description Short summary of the kind of problem.
+             */
+            title: string
+            /**
+             * Type
+             * @description Stable URI identifying the kind of problem.
+             */
+            type: string
+          } & {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  getConfigSchema: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
 }

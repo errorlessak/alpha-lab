@@ -1,0 +1,95 @@
+/*
+ * Design tokens — §13.2, implemented verbatim.
+ *
+ * "Plotter on cold stock." The ground is a cold oat, deliberately not cream:
+ * cream plus a serif plus terracotta is the look every generated design lands
+ * on, and §13.1 rules it out along with the near-black trading terminal.
+ *
+ * Depth comes from hairline rules and recessed fills, never from shadow. That
+ * is how a printed plate does it, and this interface is a lab notebook rather
+ * than a stack of floating panes.
+ */
+
+@import 'tailwindcss';
+
+@theme {
+  /* Palette ------------------------------------------------------------- */
+  --color-paper: #eff0ea;
+  --color-paper-sunk: #e4e6de;
+  --color-rule: #c8cbc0;
+  --color-ink: #191b18;
+  --color-ink-muted: #6b7069;
+
+  --color-prussian: #1e3a5f;
+  --color-plum: #6c2b54;
+  --color-sulphur: #c29a1f;
+  --color-oxblood: #7a2418;
+  --color-sage: #3f6b57;
+
+  /* Link text, which is `--prussian` in light mode. Dark mode needs it lifted
+     further than §13.2's +12%: at #4f7cb0 a 14px link measures 4.33:1, under
+     the 4.5:1 AA needs, and §13.5's accessibility bar is not negotiable. The
+     structural prussian keeps the specified value — only text moves. */
+  --color-link: #1e3a5f;
+
+  /* Type ---------------------------------------------------------------- */
+  --font-display: 'Bricolage Grotesque Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Public Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-data: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* Scale — 1.25 ratio on a 16px base ----------------------------------- */
+  --text-2xs: 0.75rem; /* 12 — captions, stamps */
+  --text-xs: 0.875rem; /* 14 — labels, table cells */
+  --text-sm: 1rem; /* 16 — body */
+  --text-base: 1.25rem; /* 20 */
+  --text-lg: 1.5625rem; /* 25 */
+  --text-xl: 1.9375rem; /* 31 */
+  --text-2xl: 2.4375rem; /* 39 */
+
+  /* Spacing — 4px base --------------------------------------------------- */
+  --spacing: 0.25rem;
+
+  /* Radius — 2px only ---------------------------------------------------- */
+  --radius-plate: 2px;
+
+  /* Layout --------------------------------------------------------------- */
+  --width-margin: 280px;
+  --width-column: 1080px;
+}
+
+/*
+ * Dark mode inverts the ground and lifts the four accents by 12% lightness.
+ * The accents keep their identity; only the paper flips. Without that rule a
+ * dark theme for a finance tool drifts straight into the terminal §13.1 bans.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-paper: #101210;
+    --color-paper-sunk: #1a1d19;
+    --color-rule: #34382f;
+    --color-ink: #e8eae2;
+    --color-ink-muted: #9aa093;
+
+    --color-prussian: #4f7cb0;
+    --color-plum: #b0577f;
+    --color-sulphur: #e0bc55;
+    --color-oxblood: #c25a45;
+    --color-sage: #6fa287;
+    --color-link: #9cc0e8;
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-paper: #101210;
+  --color-paper-sunk: #1a1d19;
+  --color-rule: #34382f;
+  --color-ink: #e8eae2;
+  --color-ink-muted: #9aa093;
+
+  --color-prussian: #4f7cb0;
+  --color-plum: #b0577f;
+  --color-sulphur: #e0bc55;
+  --color-oxblood: #c25a45;
+  --color-sage: #6fa287;
+  --color-link: #9cc0e8;
+}

@@ -8,7 +8,7 @@ It deliberately refuses to trade. There is no broker connectivity, no order
 routing, and no recommendation of any kind. The system reports evidence; the
 judgement stays with the researcher.
 
-> **Status: Phase 11 of 14.** In place: determinism and hashing, run manifests,
+> **Status: Phase 12 of 14.** In place: determinism and hashing, run manifests,
 > the immutable artifact store, the config schema, point-in-time ingestion, the
 > parquet lake, the duckdb catalog, quality reporting, 27 in-house causal
 > feature primitives with a leak-proof registry, four labelling methods with
@@ -24,9 +24,9 @@ judgement stays with the researcher.
 > with an in-process job runner, SSE log streaming, RFC 9457 errors, and a
 > TypeScript client generated from its own OpenAPI document. All seven leakage
 > tests from §12.3 pass, the same config run twice produces a byte-identical
-> tearsheet, and the API is contract-tested against its schema. The web app
-> arrives at Phase 12; see [PROGRESS.md](PROGRESS.md). This README gets its
-> screenshots at Phase 14 (§20).
+> tearsheet, the API is contract-tested against its schema, and the web
+> application is built — a lab notebook with a margin that argues with its own
+> results. See [PROGRESS.md](PROGRESS.md).
 
 ## Why it exists
 
@@ -215,6 +215,42 @@ Regenerates `docs/openapi.json` and the TypeScript client in
 `web/src/api/generated/`. Both are committed, and the test suite fails if they
 drift from the routes.
 
+### Look at it
+
+```bash
+just serve
+```
+
+```bash
+npm --prefix web run dev
+```
+
+The app on `http://localhost:5173`, reading the API on 8000.
+
+![The run index](docs/screenshots/run-index.png)
+
+The index is a ledger, not a dashboard. Failed runs stay in it — a research
+index that hides its failures is a highlight reel.
+
+![A run overview](docs/screenshots/run-overview.png)
+
+The hero is the **Fold Strip**: one lane per walk-forward fold, prussian for
+train, hatched sulphur for the purge and embargo, plum for test. It is
+simultaneously the chart, the global fold filter, and the honest disclosure of
+exactly how the model was validated.
+
+Below it, headline metrics are **tolerance rails** rather than big numbers —
+each shows the estimate, its confidence interval, and the line it has to clear.
+A deflated Sharpe of 0.524 against a 0.5 threshold *looks* like what it is.
+
+Every plate carries a provenance stamp, so no chart can be screenshotted out of
+context and misread. The right margin is generated from the tearsheet and
+argues with the page.
+
+The design is specified in §13 of the architecture and worked through in
+[docs/design-plan.md](docs/design-plan.md), including the self-critique against
+the three looks AI-generated design tends to produce.
+
 ## Documentation
 
 | | |
@@ -224,6 +260,7 @@ drift from the routes.
 | [docs/data-dictionary.md](docs/data-dictionary.md) | Every feature: inputs, parameters, warm-up cost. Generated from the registry. |
 | [docs/decisions/](docs/decisions/) | ADRs. Every deviation from a naïve stack, with its trade-off. |
 | [docs/openapi.json](docs/openapi.json) | The API contract. The TypeScript client is generated from it. |
+| [docs/design-plan.md](docs/design-plan.md) | The web app's design: tokens, layout, wireframes, and the self-critique. |
 | [DISCLAIMER.md](DISCLAIMER.md) | Research software. Not investment advice. |
 
 ## Disclaimer

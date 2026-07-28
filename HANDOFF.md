@@ -92,9 +92,14 @@ uv sync --all-packages --extra gbm --extra tune
 just verify
 ```
 
-The gate. Runs `fmt lint types test test-leak smoke`. **Must be green before a
-phase is called done.** Per ADR 0009, `smoke` joined at Phase 10 and `e2e` joins
-at Phase 12; `verify-full` already names the final form.
+The gate, now in its final form: `fmt lint types test test-leak smoke e2e
+budget`. **Must be green before a phase is called done.** ADR 0009's sequencing
+is complete — `smoke` joined at Phase 10, `e2e` at Phase 12 — so `verify-full`
+is now just an alias.
+
+It covers both languages: ruff and Prettier, ruff and ESLint, mypy strict and
+`tsc --noEmit`, pytest and Vitest, plus the smoke run, the Playwright golden
+path, and the bundle budget.
 
 ```bash
 just docs
@@ -145,7 +150,7 @@ Other CLI: `alpha version`, `alpha dev scratch-run`, `alpha data inspect
 
 ## 5. State of the build
 
-**Phases 0–11 complete. Phase 12 is next.**
+**Phases 0–12 complete. Phase 13 (optional) or 14 is next.**
 
 | Phase | Status |
 |---|---|
@@ -161,9 +166,9 @@ Other CLI: `alpha version`, `alpha dev scratch-run`, `alpha data inspect
 | 9 Explainability | ✅ |
 | 10 Pipelines and CLI | ✅ |
 | 11 API service | ✅ |
-| **12 Web app** | **⬜ next** |
+| 12 Web app | ✅ |
 | 13 Sequence models (optional) | ⬜ |
-| 14 Packaging and docs | ⬜ |
+| **14 Packaging and docs** | **⬜ next** |
 
 Last `just verify`: **1009 passed, 3 deselected, coverage 89.99%**, leakage suite
 **71 passed**, mypy strict clean on 100 source files, and `just smoke` completing

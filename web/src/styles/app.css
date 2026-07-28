@@ -1,0 +1,116 @@
+/*
+ * Base typography and the few global rules the design plan depends on.
+ *
+ * Everything else is a utility at the point of use. These are here because
+ * they are properties of the page rather than of any component: the ground it
+ * is printed on, how numbers align, and how focus is shown.
+ */
+
+@import './tokens.css';
+
+/* Self-hosted. A network round trip for a typeface is a layout shift the
+   quality bar forbids, and a research tool that will not render offline fails
+   in the one place it is used.
+ *
+ * Latin subsets only. The full packages ship Cyrillic, Greek and Vietnamese
+ * `@font-face` blocks whose `unicode-range` this interface never enters, and
+ * the stylesheet is render-blocking — so those blocks cost first paint on every
+ * load in exchange for nothing. Widening this is a decision, not a default. */
+@import '@fontsource-variable/bricolage-grotesque/wdth.css';
+@import '@fontsource-variable/public-sans/wght.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+
+@layer base {
+  html {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+  }
+
+  /* §13.2: every number is monospace with tabular figures, without exception.
+     Decimal alignment in tables depends on it, and a column of proportional
+     digits is a column nobody can scan. */
+  .tabular,
+  td.num,
+  th.num {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  /* §13.5: every interactive element keyboard-reachable with a visible focus
+     ring in --prussian. Offset so the ring never sits on top of a hairline. */
+  :focus-visible {
+    outline: 2px solid var(--color-prussian);
+    outline-offset: 2px;
+    border-radius: var(--radius-plate);
+  }
+
+  /* Only for pointer users, and only where a focus ring would be noise. */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  ::selection {
+    background-color: var(--color-sulphur);
+    color: var(--color-ink);
+  }
+}
+
+@layer components {
+  /* A plate is a figure on the page: hairline above, never a card, never a
+     shadow. §13.2 removed shadows; this is what replaces them. */
+  .plate {
+    border-top: 1px solid var(--color-rule);
+    padding-block: calc(var(--spacing) * 8);
+  }
+
+  .plate:first-of-type {
+    border-top: none;
+  }
+}
+
+/* §13.2: the one orchestrated moment — the Fold Strip draws left to right over
+   600ms, charts fade in after it. This is the only keyframe in the app. */
+@keyframes fold-draw {
+  from {
+    transform: scaleX(0);
+    opacity: 0.4;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes plate-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* §13.2: one orchestrated page-load and nothing else. Reduced motion disables
+   the draw entirely rather than shortening it — a fast animation is still an
+   animation to someone who asked for none. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
