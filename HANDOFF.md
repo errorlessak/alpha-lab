@@ -170,13 +170,16 @@ Other CLI: `alpha version`, `alpha dev scratch-run`, `alpha data inspect
 | 13 Sequence models (optional) | ⬜ |
 | **14 Packaging and docs** | **⬜ next** |
 
-Last `just verify`: **1009 passed, 3 deselected, coverage 89.99%**, leakage suite
-**71 passed**, mypy strict clean on 100 source files, and `just smoke` completing
-the golden path end to end.
+Last `just verify`: **1009 Python tests passed, 34 web tests passed, 71 leakage
+tests passed**, coverage 89.99%, mypy strict clean on 100 source files, `tsc`
+clean, the smoke run completing the golden path, 10 Playwright tests green, and
+99 KB of initial JS against a 200 KB budget. Lighthouse 96 / 100 / 100.
 
 Commits, newest first:
 
 ```
+817348b feat: Phase 12 — the web application
+884133c docs: record the Phase 11 commit in the handoff log
 16c9b31 feat: Phase 11 — the API service, the job runner, and SSE
 e6ba42d docs: record the Phase 10 commit in the handoff log
 531ebd5 feat: Phase 10 — pipelines, the CLI, and the economic leaderboard
