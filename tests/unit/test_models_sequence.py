@@ -143,6 +143,19 @@ def test_a_sequence_model_fits_and_predicts_every_row(dataset, name):
     assert model.predict(features).shape == (len(features),)
 
 
+def test_sequence_settings_arrive_flat_as_well_as_in_a_mapping():
+    flat = build_model("lstm", seed=1, seq_len=6, hidden_size=4)
+    mapped = build_model("lstm", seed=1, params={"seq_len": 6, "hidden_size": 4})
+
+    assert flat.params["seq_len"] == mapped.params["seq_len"] == 6
+    assert flat.params["hidden_size"] == mapped.params["hidden_size"] == 4
+
+
+def test_an_unknown_sequence_parameter_is_a_typed_error():
+    with pytest.raises(ModelError, match="parameter"):
+        build_model("lstm", seed=1, definitely_not_a_hyperparameter=3)
+
+
 def test_fitting_without_the_bar_grid_is_an_error(dataset):
     features, labels = dataset
     model = build_model("lstm", seed=1, params=FAST)

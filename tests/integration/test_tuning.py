@@ -94,6 +94,42 @@ def test_the_objective_is_the_net_sharpe_of_a_costed_backtest(tunable):
     assert replayed.sharpe == pytest.approx(result.best_value, abs=1e-9)
 
 
+def test_a_gradient_boosted_study_actually_runs_its_trials(tunable):
+    """Every registered space must be tunable, not only the linear ones.
+
+    A trial whose model cannot be constructed returns `_FAILED_TRIAL_VALUE` at
+    best and kills the study at worst, and either way the study's `n_trials`
+    still flows into the deflated-Sharpe haircut — a haircut applied for a
+    search that never happened.
+    """
+    pytest.importorskip("lightgbm", reason="the boosting libraries live behind the `gbm` extra")
+    config, feature_set, splits = tunable
+
+    result = tune_model("lightgbm", feature_set, splits, config)
+
+    assert result.n_trials == TRIALS
+    assert set(result.best_params) == set(SEARCH_SPACES["lightgbm"])
+    assert len(result.values) == TRIALS
+    assert all(value > -1e8 for value in result.values)
+
+
+def test_a_tuned_gradient_boosted_model_can_be_rebuilt_from_its_best_params(tunable):
+    pytest.importorskip("lightgbm", reason="the boosting libraries live behind the `gbm` extra")
+    config, feature_set, splits = tunable
+    result = tune_model("lightgbm", feature_set, splits, config)
+
+    model = build_model(
+        "lightgbm",
+        seed=config.meta.seed,
+        calibrate=config.models.calibrate,
+        **result.best_params,
+    )
+
+    settings = model.estimator.get_params()
+    for key, value in result.best_params.items():
+        assert settings[key] == pytest.approx(value), key
+
+
 def test_models_without_a_search_space_are_skipped_not_refused(tunable):
     config, feature_set, splits = tunable
     # The mandatory baselines have no hyperparameters, and a leaderboard

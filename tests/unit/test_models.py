@@ -26,6 +26,7 @@ from alphacore.models import (
     registered_models,
 )
 from alphacore.models.protocol import AlphaModel
+from alphacore.pipelines.tune import SEARCH_SPACES
 
 N = 600
 N_FEATURES = 6
@@ -102,6 +103,81 @@ def test_built_models_satisfy_the_protocol(name):
 def test_building_an_unknown_model_lists_the_known_ones():
     with pytest.raises(ModelError, match="Unknown model"):
         build_model("magic", seed=1)
+
+
+# --- parameters reaching the estimator -------------------------------------
+#
+# The registry is the only path a tuned parameter takes to a model: `tune_model`
+# and `build_leaderboard` both hand their settings to `build_model` and trust it
+# to arrive. A parameter that is silently dropped, or that raises `TypeError`
+# from inside a builder, makes a study either meaningless or dead — and the
+# study is what the deflated-Sharpe haircut counts.
+
+GBM_MODELS = ("lightgbm", "xgboost", "catboost")
+
+TUNED_SETTINGS = {
+    "logistic": ({"C": 0.25}, {"C": 0.25}),
+    "elasticnet": ({"C": 0.25, "l1_ratio": 0.3}, {"C": 0.25, "l1_ratio": 0.3}),
+    "lightgbm": (
+        {"num_leaves": 15, "n_estimators": 60, "learning_rate": 0.05, "min_child_samples": 25},
+        {"num_leaves": 15, "n_estimators": 60, "learning_rate": 0.05, "min_child_samples": 25},
+    ),
+    "xgboost": (
+        {"max_depth": 4, "n_estimators": 60, "subsample": 0.7},
+        {"max_depth": 4, "n_estimators": 60, "subsample": 0.7},
+    ),
+    "catboost": (
+        {"max_depth": 4, "n_estimators": 60, "learning_rate": 0.05},
+        {"depth": 4, "iterations": 60, "learning_rate": 0.05},
+    ),
+}
+"""Model name to `(settings passed in, parameters the estimator must carry)`.
+The two differ for CatBoost, whose library calls them `depth` and `iterations`;
+the registry's vocabulary is the same for every model so a search space does not
+have to know which library it landed on."""
+
+
+@pytest.mark.parametrize("name", sorted(TUNED_SETTINGS))
+def test_tuned_parameters_reach_the_estimator(name):
+    if name in GBM_MODELS:
+        pytest.importorskip(name, reason="the boosting libraries live behind the `gbm` extra")
+    passed, expected = TUNED_SETTINGS[name]
+    model = build_model(name, seed=1, **passed)
+
+    settings = model.estimator.get_params()
+    for key, value in expected.items():
+        assert settings[key] == pytest.approx(value), key
+
+
+@pytest.mark.parametrize("name", sorted(TUNED_SETTINGS))
+def test_the_same_parameters_can_arrive_as_a_mapping(name):
+    if name in GBM_MODELS:
+        pytest.importorskip(name, reason="the boosting libraries live behind the `gbm` extra")
+    passed, expected = TUNED_SETTINGS[name]
+    model = build_model(name, seed=1, params=passed)
+
+    settings = model.estimator.get_params()
+    for key, value in expected.items():
+        assert settings[key] == pytest.approx(value), key
+
+
+@pytest.mark.parametrize("name", ["logistic", "lightgbm"])
+def test_a_parameter_the_model_does_not_have_is_a_typed_error(name):
+    if name in GBM_MODELS:
+        pytest.importorskip(name, reason="the boosting libraries live behind the `gbm` extra")
+    # Never a TypeError: every failure in this library is typed (§0.7).
+    with pytest.raises(ModelError, match="parameter"):
+        build_model(name, seed=1, definitely_not_a_hyperparameter=3)
+
+
+@pytest.mark.parametrize("name", sorted(SEARCH_SPACES))
+def test_every_search_space_parameter_is_accepted_by_its_model(name):
+    """The tuner's vocabulary and the builders' cannot be allowed to drift."""
+    if name in GBM_MODELS:
+        pytest.importorskip(name, reason="the boosting libraries live behind the `gbm` extra")
+    low = {key: spec[1] for key, spec in SEARCH_SPACES[name].items()}
+
+    assert build_model(name, seed=1, **low) is not None
 
 
 # --- fitting and predicting ------------------------------------------------

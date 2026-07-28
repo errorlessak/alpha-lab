@@ -178,8 +178,8 @@ Other CLI: `alpha version`, `alpha dev scratch-run`, `alpha data inspect
 | 13 Sequence models (optional) | ✅ |
 | **14 Packaging and docs** | **⬜ next** |
 
-Last `just verify`: **1062 Python tests passed, 34 web tests passed, 75 leakage
-tests passed**, coverage 89.33%, mypy strict clean on 104 source files, `tsc`
+Last `just verify`: **1083 Python tests passed, 34 web tests passed, 75 leakage
+tests passed**, coverage 89.44%, mypy strict clean on 104 source files, `tsc`
 clean, the smoke run completing the golden path, 10 Playwright tests green, and
 99 KB of initial JS against a 200 KB budget. Lighthouse 96 / 100 / 100.
 
@@ -339,20 +339,17 @@ All are recorded in `PROGRESS.md` with reasoning. The short list:
 16. **Sequence models train on CPU unless a device is named** (ADR 0012), because
     accelerator reductions are not bit-reproducible and I8 is load-bearing.
     `device: auto` still does what §10.3 describes, and warns.
+17. **Every builder takes its settings as one `params` mapping**, and rejects a
+    key it does not have with a `ModelError`. `build_model` accepts both shapes
+    — `params={...}` from a config, keywords from an optuna trial — and merges
+    them before forwarding. The search spaces speak the registry's vocabulary
+    (`max_depth`, `n_estimators`), not each library's dialect; the CatBoost
+    adapter translates to `depth` and `iterations`.
 
 ---
 
 ## 8. Known gaps entering Phase 14
 
-- **Tuned parameters never reach the GBM builders.**
-  `build_model(name, seed=..., **params)` passes them as flat keywords, but
-  `make_lightgbm|xgboost|catboost` take a `params` mapping, so
-  `build_model("lightgbm", seed=1, max_depth=4)` raises `TypeError` —
-  and `tune_model`'s objective catches only `(ModelError, PipelineError)`, so
-  tuning any GBM kills the study. Green since Phase 10 only because
-  `tests/integration/test_tuning.py` tunes `logistic`, whose builder does take
-  flat kwargs. Fix it with a failing test first; `sequence.py`'s builders take a
-  mapping too, so whichever shape wins must cover them.
 - **Jobs do not survive an API restart.** Nothing resumes them; the run
   directory will not claim to be `completed`. ADR 0008 names the design.
 - **No authentication anywhere.** `alpha serve` binds loopback and warns if told

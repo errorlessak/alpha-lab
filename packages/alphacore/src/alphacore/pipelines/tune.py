@@ -60,9 +60,12 @@ SEARCH_SPACES: Final[dict[str, dict[str, tuple[Any, ...]]]] = {
         "subsample": ("float", 0.5, 1.0),
     },
     "catboost": {
-        "depth": ("int", 2, 8),
+        # The registry's names, not CatBoost's `depth` and `iterations`. The
+        # adapter translates; a search space that spoke each library's dialect
+        # would have to be rewritten to move a parameter between models.
+        "max_depth": ("int", 2, 8),
         "learning_rate": ("float_log", 0.01, 0.3),
-        "iterations": ("int", 50, 400),
+        "n_estimators": ("int", 50, 400),
     },
 }
 """Per-model search spaces. Deliberately small: a wide space over a short

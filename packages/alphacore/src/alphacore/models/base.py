@@ -33,6 +33,7 @@ from alphacore.errors import ModelError
 from alphacore.models.protocol import Task
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
     from numpy.typing import NDArray
@@ -45,6 +46,7 @@ __all__ = [
     "as_label_series",
     "fit_calibrator",
     "make_preprocessor",
+    "resolve_params",
 ]
 
 CALIBRATION_METHODS: Final[tuple[str, ...]] = ("none", "sigmoid", "isotonic")
@@ -151,6 +153,35 @@ def make_preprocessor(
     return steps
 
 
+def resolve_params(
+    name: str, defaults: Mapping[str, Any], params: Mapping[str, Any] | None
+) -> dict[str, Any]:
+    """Merge a model's overrides onto its defaults, rejecting unknown keys.
+
+    Every adapter takes its settings the same way, and every adapter refuses a
+    setting it does not have. Silently ignoring one would make a tuning study
+    report a best configuration the model never used — the search would be
+    honest about its trial count and wrong about everything else (§10.4).
+
+    Args:
+        name: Model name, for the error message.
+        defaults: The model's complete parameter vocabulary, with its defaults.
+        params: Overrides, or None.
+
+    Returns:
+        The merged settings.
+
+    Raises:
+        ModelError: If an override names a parameter the model does not have.
+    """
+    settings = {**defaults, **(params or {})}
+    unknown = sorted(set(settings) - set(defaults))
+    if unknown:
+        msg = f"Unknown parameter(s) {unknown} for model {name!r}. Known: {sorted(defaults)}."
+        raise ModelError(msg)
+    return settings
+
+
 def fit_calibrator(method: str, raw: NDArray[np.float64], y: pd.Series) -> Any:  # noqa: ANN401
     """Fit a probability calibrator on held-out scores (§10.2).
 
@@ -240,6 +271,19 @@ class FittedModel:
     def __repr__(self) -> str:
         """Return a debug representation naming the model and calibration."""
         return f"{type(self).__name__}({self.name!r}, calibrate={self.calibrate!r})"
+
+    @property
+    def estimator(self) -> Any:  # noqa: ANN401 - any sklearn-compatible classifier
+        """The wrapped estimator, before or after fitting.
+
+        Exposed so a caller — a test, or a report recording what was actually
+        searched — can read the settings a model was built with rather than the
+        settings a config claims it was built with.
+
+        Returns:
+            The estimator at the end of the pipeline.
+        """
+        return self._steps[-1][1]
 
     def _require_fitted(self) -> Pipeline:
         """Return the fitted pipeline.

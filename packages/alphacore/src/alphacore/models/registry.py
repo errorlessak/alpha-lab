@@ -96,6 +96,8 @@ _BUILDERS: Final[dict[str, Callable[..., Any]]] = {
     "gru": make_gru,
     "tcn": make_tcn,
     "ensemble_gbm_lstm": make_gbm_sequence_ensemble,
+    # The baselines take no parameters at all — that is what makes them
+    # baselines — so they swallow whatever a config hands them.
     "baseline_buyhold": lambda *, seed, **_: BuyAndHold(seed=seed),
     "baseline_always_long": lambda *, seed, **_: AlwaysLong(seed=seed),
     "baseline_random_sign": lambda *, seed, **_: RandomSign(seed=seed),
@@ -112,25 +114,41 @@ def registered_models() -> tuple[str, ...]:
     return tuple(sorted([*_BUILDERS, "baseline_shuffled"]))
 
 
-def build_model(name: str, *, seed: int, calibrate: str = "none", **params: Any) -> AlphaModel:  # noqa: ANN401
+def build_model(
+    name: str,
+    *,
+    seed: int,
+    calibrate: str = "none",
+    params: Mapping[str, Any] | None = None,
+    **overrides: Any,  # noqa: ANN401
+) -> AlphaModel:
     """Construct an unfitted model by name.
+
+    Settings arrive two ways and leave one. A config passes a mapping; a tuning
+    trial passes keywords it drew from a search space, because that is the shape
+    optuna hands back. Both are merged here and forwarded to every builder as a
+    single `params` mapping, so a builder has exactly one way to read a setting
+    and exactly one place to reject one it does not have.
 
     Args:
         name: Registry name from `models.candidates`.
         seed: Run seed.
         calibrate: Calibration method. Ignored by the baselines, which have no
             probabilities worth calibrating.
-        **params: Extra keyword arguments forwarded to the builder.
+        params: Settings as a mapping.
+        **overrides: The same settings as keywords. These win over `params`.
 
     Returns:
         The unfitted model.
 
     Raises:
         ModelError: If the name is unknown, an optional dependency is missing,
-            or the calibration method is invalid.
+            the calibration method is invalid, or a setting names a parameter
+            the model does not have.
     """
+    merged: dict[str, Any] = {**(params or {}), **overrides}
     if name == "baseline_shuffled":
-        inner = build_model(SHUFFLED_INNER_MODEL, seed=seed, calibrate=calibrate, **params)
+        inner = build_model(SHUFFLED_INNER_MODEL, seed=seed, calibrate=calibrate, params=merged)
         return cast("AlphaModel", ShuffledLabelModel(inner, seed=seed))
 
     builder = _BUILDERS.get(name)
@@ -139,4 +157,4 @@ def build_model(name: str, *, seed: int, calibrate: str = "none", **params: Any)
         raise ModelError(msg)
     # The builders return concrete classes; conformance to the protocol is
     # asserted at runtime in the tests rather than inferred here.
-    return cast("AlphaModel", builder(seed=seed, calibrate=calibrate, **params))
+    return cast("AlphaModel", builder(seed=seed, calibrate=calibrate, params=merged))

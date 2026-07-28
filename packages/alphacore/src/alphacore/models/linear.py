@@ -15,40 +15,51 @@ units.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, Final
+
 from sklearn.linear_model import LogisticRegression
 
-from alphacore.models.base import FittedModel, make_preprocessor
+from alphacore.models.base import FittedModel, make_preprocessor, resolve_params
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 __all__ = ["make_elasticnet", "make_logistic"]
 
 DEFAULT_MAX_ITER = 2_000
 
+_LOGISTIC_DEFAULTS: Final[dict[str, Any]] = {"C": 1.0}
+_ELASTICNET_DEFAULTS: Final[dict[str, Any]] = {"C": 1.0, "l1_ratio": 0.5}
 
-def make_logistic(*, seed: int, calibrate: str = "none", C: float = 1.0) -> FittedModel:
+
+def make_logistic(
+    *, seed: int, calibrate: str = "none", params: Mapping[str, Any] | None = None
+) -> FittedModel:
     """Build an L2-regularised logistic regression.
 
     Args:
         seed: Random seed, for the solver's tie-breaking.
         calibrate: Calibration method.
-        C: Inverse regularisation strength.
+        params: Overrides merged onto the defaults. `C` is the inverse
+            regularisation strength.
 
     Returns:
         The model, unfitted.
+
+    Raises:
+        ModelError: If a parameter is not one this model has.
     """
+    settings = resolve_params("logistic", _LOGISTIC_DEFAULTS, params)
     return FittedModel(
         "logistic",
-        LogisticRegression(C=C, max_iter=DEFAULT_MAX_ITER, random_state=seed),
+        LogisticRegression(C=settings["C"], max_iter=DEFAULT_MAX_ITER, random_state=seed),
         preprocessor=make_preprocessor(scale=True),
         calibrate=calibrate,
     )
 
 
 def make_elasticnet(
-    *,
-    seed: int,
-    calibrate: str = "none",
-    C: float = 1.0,
-    l1_ratio: float = 0.5,
+    *, seed: int, calibrate: str = "none", params: Mapping[str, Any] | None = None
 ) -> FittedModel:
     """Build an elastic-net logistic regression.
 
@@ -59,20 +70,24 @@ def make_elasticnet(
     Args:
         seed: Random seed.
         calibrate: Calibration method.
-        C: Inverse regularisation strength.
-        l1_ratio: Mix between L1 (1.0) and L2 (0.0).
+        params: Overrides merged onto the defaults. `C` is the inverse
+            regularisation strength; `l1_ratio` mixes L1 (1.0) with L2 (0.0).
 
     Returns:
         The model, unfitted.
+
+    Raises:
+        ModelError: If a parameter is not one this model has.
     """
+    settings = resolve_params("elasticnet", _ELASTICNET_DEFAULTS, params)
     # scikit-learn 1.8 deprecated the `penalty` argument: the mix is expressed
     # by `l1_ratio` alone now, with 0 meaning pure L2 and 1 pure L1.
     return FittedModel(
         "elasticnet",
         LogisticRegression(
             solver="saga",
-            l1_ratio=l1_ratio,
-            C=C,
+            l1_ratio=settings["l1_ratio"],
+            C=settings["C"],
             max_iter=DEFAULT_MAX_ITER,
             random_state=seed,
         ),

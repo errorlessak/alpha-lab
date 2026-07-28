@@ -1291,8 +1291,9 @@ purged folds guarantee nothing about a tensor stacked over them.
 | Sequence model appears on the leaderboard | ✅ `tests/integration/test_sequence_leaderboard.py` — `lstm` ranked against the five mandatory baselines through the ordinary OOF path, and `ensemble_gbm_lstm` beside its legs |
 | Window-purge test passes | ✅ `tests/leakage/test_window_purge.py`, with its control |
 
-53 tests across the four new files. Full suite: **1062 passed**, mypy strict
-clean on 104 source files.
+53 tests across the four new files, plus 21 covering the registry fix below.
+Full suite: **1083 passed**, coverage 89.44%, mypy strict clean on 104 source
+files.
 
 ### Deviations
 
@@ -1306,26 +1307,52 @@ clean on 104 source files.
    because one happens to be present would make the manifest's reproducibility
    claim false. `auto` still does what the spec describes, and logs a warning
    naming what it costs.
-3. **No search space is registered for the sequence models.** §10.4's tuner
+3. **`build_model` accepts settings two ways and forwards them one way.** A
+   mapping from a config, keywords from an optuna trial, merged before the
+   builder sees them. Two accepted call shapes is one more than ideal; the
+   alternative was every caller converting, and the tuner's shape is decided by
+   optuna, not by us.
+4. **No search space is registered for the sequence models.** §10.4's tuner
    would happily search one, but each trial trains a network on every fold, and
    the trial count feeds the deflated-Sharpe haircut. A space added carelessly
    here makes the haircut bigger and the runs slower for no stated benefit.
-4. **Sequence models report no feature importance.** Input gradients or
+5. **Sequence models report no feature importance.** Input gradients or
    permutation importance are both defensible numbers, but they answer a
    different question from the tree importances the leaderboard shows in the
    same column, and putting them there would invite exactly the comparison they
    do not support.
 
-### A bug found next door
+### A bug found next door, then fixed
 
-`build_model(name, seed=..., **params)` forwards tuned settings as flat keyword
-arguments, but the tree builders take a `params` mapping — so
-`build_model("lightgbm", seed=1, max_depth=4)` raises `TypeError`, and
+`build_model(name, seed=..., **params)` forwarded tuned settings as flat keyword
+arguments, but the tree builders took a `params` mapping — so
+`build_model("lightgbm", seed=1, max_depth=4)` raised `TypeError`, and
 `tune_model`'s objective catches only `(ModelError, PipelineError)`. Tuning any
-GBM therefore kills the whole study. `tests/integration/test_tuning.py` only
-tunes `logistic`, whose builder does take flat kwargs, which is why this has
-been green since Phase 10. Not fixed here — it predates this phase and belongs
-with its own failing test — but recorded so it is not rediscovered.
+GBM killed the whole study. `tests/integration/test_tuning.py` only tuned
+`logistic`, whose builder did take flat kwargs, which is why this had been green
+since Phase 10.
+
+Fixed in the same phase, with its own red-green cycle. Every builder now takes
+one shape — a `params` mapping — and `resolve_params` in `models/base.py`
+rejects a key the model does not have with a `ModelError`, so an invalid setting
+is a rejected trial rather than a `TypeError` or, worse, a silently ignored
+parameter. `build_model` accepts both call shapes and merges them, because a
+config passes a mapping and optuna hands back keywords.
+
+Two things surfaced only once the parameters could actually arrive:
+
+- **CatBoost's search space named `depth` and `iterations`** — its own dialect,
+  which the adapter never reads. Even with the `TypeError` gone, every CatBoost
+  trial would have trained the default model and reported a best configuration
+  it never used. The spaces now speak the registry's vocabulary and the adapter
+  translates.
+- **LightGBM ignored `num_leaves` and `min_child_samples`**, two of the four
+  parameters its space searches, because the adapter derived `num_leaves` from
+  `max_depth` and never looked at the rest. `test_every_search_space_parameter_is_accepted_by_its_model`
+  now fails if the two vocabularies drift again.
+
+`subsample` is rejected by CatBoost rather than accepted and ignored, on the
+same reasoning.
 
 ### What surprised us
 
@@ -1346,6 +1373,11 @@ with its own failing test — but recorded so it is not rediscovered.
   seconds, because it stops after six or seven. The plan had been to add a
   per-model `params` block to the config schema so the tests could shrink it;
   the tests did not need it, and §5 kept its shape.
+- **A `TypeError` was hiding two silent wrongs.** Fixing the crash was the small
+  part. The parameters had never arrived, so nobody had ever checked that the
+  names the tuner searches are names the models read — and two of the three GBM
+  spaces were partly fiction. A crash is a good bug: it is the silent version of
+  the same defect that costs you a quarter of results.
 - **Bidirectional is only frightening until the window is right.** The usual
   warning — "bidirectional RNNs leak the future" — is a statement about
   *centred* windows. Over a trailing window the backward pass reads recent bars

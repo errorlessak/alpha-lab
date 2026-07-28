@@ -51,6 +51,7 @@ from alphacore.models.base import (
     as_label_series,
     fit_calibrator,
     make_preprocessor,
+    resolve_params,
 )
 from alphacore.models.protocol import Task
 from alphacore.models.windows import build_windows, grid_positions
@@ -197,11 +198,7 @@ class SequenceModel:
             ModelError: If the architecture, calibration method, or a numeric
                 setting is invalid.
         """
-        settings = {**SEQUENCE_DEFAULTS, **(params or {})}
-        unknown = sorted(set(settings) - set(SEQUENCE_DEFAULTS))
-        if unknown:
-            msg = f"Unknown sequence parameter(s) {unknown} for model {name!r}."
-            raise ModelError(msg)
+        settings = resolve_params(name, SEQUENCE_DEFAULTS, params)
         if settings["architecture"] not in ARCHITECTURES:
             msg = (
                 f"Unknown architecture {settings['architecture']!r} for model {name!r}. "

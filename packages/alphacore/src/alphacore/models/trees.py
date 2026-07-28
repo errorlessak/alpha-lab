@@ -21,7 +21,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Final
 
 from alphacore.errors import ModelError
-from alphacore.models.base import FittedModel, make_preprocessor
+from alphacore.models.base import FittedModel, make_preprocessor, resolve_params
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -40,6 +40,26 @@ _DEFAULTS: Final[dict[str, Any]] = {
     "subsample": 0.8,
     "colsample": 0.8,
 }
+"""The shared vocabulary. Names are the registry's, not any one library's:
+CatBoost calls these `iterations`, `depth` and `rsm`, and a search space that
+had to know which library it landed on would have to be rewritten to move a
+parameter between them (§10.4)."""
+
+_LIGHTGBM_DEFAULTS: Final[dict[str, Any]] = {
+    **_DEFAULTS,
+    "num_leaves": None,
+    "min_child_samples": 20,
+}
+"""`num_leaves` defaults to `2 ** max_depth` — expressed as None here, because
+a literal default would silently stop tracking `max_depth`."""
+
+_CATBOOST_DEFAULTS: Final[dict[str, Any]] = {
+    key: value for key, value in _DEFAULTS.items() if key != "subsample"
+}
+"""CatBoost's own subsampling is bound up with its bootstrap type, and the
+adapter does not set it. Rejecting `subsample` is better than accepting it and
+doing nothing: a tuning study that reports a best `subsample` the model never
+applied is worse than one that could not run."""
 
 
 def _require(module: str, extra: str = "gbm") -> Any:  # noqa: ANN401
@@ -81,17 +101,20 @@ def make_lightgbm(
         The model, unfitted.
 
     Raises:
-        ModelError: If LightGBM is not installed.
+        ModelError: If LightGBM is not installed, or a parameter is not one this
+            model has.
     """
     lgb = _require("lightgbm")
-    settings = {**_DEFAULTS, **(params or {})}
+    settings = resolve_params("lightgbm", _LIGHTGBM_DEFAULTS, params)
+    leaves = settings["num_leaves"] or 2 ** settings["max_depth"]
     return FittedModel(
         "lightgbm",
         lgb.LGBMClassifier(
             n_estimators=settings["n_estimators"],
             learning_rate=settings["learning_rate"],
             max_depth=settings["max_depth"],
-            num_leaves=2 ** settings["max_depth"],
+            num_leaves=leaves,
+            min_child_samples=settings["min_child_samples"],
             subsample=settings["subsample"],
             subsample_freq=1,
             colsample_bytree=settings["colsample"],
@@ -120,10 +143,11 @@ def make_xgboost(
         The model, unfitted.
 
     Raises:
-        ModelError: If XGBoost is not installed.
+        ModelError: If XGBoost is not installed, or a parameter is not one this
+            model has.
     """
     xgb = _require("xgboost")
-    settings = {**_DEFAULTS, **(params or {})}
+    settings = resolve_params("xgboost", _DEFAULTS, params)
     return FittedModel(
         "xgboost",
         xgb.XGBClassifier(
@@ -157,10 +181,11 @@ def make_catboost(
         The model, unfitted.
 
     Raises:
-        ModelError: If CatBoost is not installed.
+        ModelError: If CatBoost is not installed, or a parameter is not one this
+            model has.
     """
     catboost = _require("catboost")
-    settings = {**_DEFAULTS, **(params or {})}
+    settings = resolve_params("catboost", _CATBOOST_DEFAULTS, params)
     return FittedModel(
         "catboost",
         catboost.CatBoostClassifier(
