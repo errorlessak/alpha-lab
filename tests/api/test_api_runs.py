@@ -200,6 +200,23 @@ def test_a_run_id_cannot_escape_the_artifact_store(client, api_workspace):
     assert "not an artifact" not in response.text
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "/api/v1/runs/%00",
+        "/api/v1/runs/a%00b/config",
+        "/api/v1/runs/{run_id}/export/a%00b.json",
+    ],
+)
+def test_a_nul_byte_in_a_path_is_an_error_document_not_a_crash(client, run_id, url):
+    # `Path.resolve()` raises ValueError on a NUL byte rather than reporting the
+    # file missing, and an uncaught one leaves FastAPI to answer 500 in
+    # text/plain. Every error this API returns is a problem document (§14.1).
+    response = client.get(url.format(run_id=run_id))
+    assert response.status_code in {400, 404}
+    assert response.headers["content-type"].startswith("application/problem+json")
+
+
 def test_an_unexportable_suffix_is_refused(client, run_id):
     assert client.get(f"/api/v1/runs/{run_id}/export/logs.jsonl").status_code == 404
 

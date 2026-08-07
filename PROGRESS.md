@@ -966,8 +966,8 @@ own shell tried to use the system.
 
 ### Exit criteria
 
-`just verify` green end to end: 1109 Python tests, 40 web tests, 75 leakage
-tests, 13 Playwright tests, coverage 89.43%, mypy strict clean on 105 source
+`just verify` green end to end: 1121 Python tests, 40 web tests, 75 leakage
+tests, 13 Playwright tests, coverage 89.49%, mypy strict clean on 105 source
 files, both import contracts kept, 99.0 KB of initial JS against the 200 KB
 budget. Lighthouse 95 / 100 / 100 (median of three, one-run store).
 
@@ -992,6 +992,63 @@ budget. Lighthouse 95 / 100 / 100 (median of three, one-run store).
   and the `[data-theme='dark']` block. `light-dark()` would remove the
   duplication and is well supported now, but rewriting the token layer during a
   packaging phase is how a packaging phase becomes a redesign.
+
+---
+
+## A debugging pass over the whole surface
+
+Not a phase. Every API route and every CLI verb driven with hostile input as
+well as valid input, looking for anything that answers with a crash, a
+traceback, or a number it should not have produced. Four defects, and a lesson
+about what the harness was measuring.
+
+### What it found
+
+- **A typo in `models.candidates` produced a leaderboard rather than an error.**
+  `score_models` catches `ModelError` per candidate and records a `FAILED` row,
+  which is right for a missing optional dependency — torch is two gigabytes and
+  a researcher may knowingly do without it, and the rest of the leaderboard
+  still means something. It was also catching an **unregistered name**, which is
+  a different thing entirely: `alpha train -s models.candidates=[not_a_model]`
+  ranked six models, put `not_a_model` last with dashes, and reported
+  "configurations evaluated: 6" — a trial count that feeds the deflated Sharpe
+  haircut. A researcher who fat-fingers `lightgbmm` gets a complete, plausible
+  leaderboard without the model they meant to run. The two failures are now
+  separated, and the unregistered one raises before any fold is scored.
+- **A NUL byte in a path segment answered 500 in `text/plain`.** Half of this
+  was self-inflicted: the traversal fix in Phase 14 replaced `Path.is_dir()`
+  with `Path.resolve()`, and `is_dir()` swallows the `ValueError` an unusable
+  name raises while `resolve()` does not. The other half predates it —
+  `artifact_path` has always used `resolve()`. Both catch it now.
+- **A failed job's `error` field was a raw traceback**, and that field is what
+  the UI puts in front of a reader. The last line of the forty was already the
+  answer — `ConfigError: Could not parse YAML in pyproject.toml: expected
+  '<document start>'` — and the thirty-nine in front of it published the
+  server's virtualenv layout into the browser.
+- **Jobs left `queued` by a dead process stayed queued forever.** `submit`
+  dispatches immediately and nothing picks a queued job up later, so a row still
+  in that state when a runner starts is provably orphaned. It now says so.
+  `running` is left alone: a worker may be mid-write, and a second process
+  cannot know whether it died.
+
+### What surprised us
+
+- **Two of the six findings were the harness, not the product.** A probe script
+  using `TestClient` reported `POST /jobs` as a 500 — that was
+  `ProcessPoolExecutor` refusing to spawn from a script with no
+  `if __name__ == "__main__"` guard, and against a real uvicorn the same request
+  is a 202. Another reported `GET /api/v1/runs/.` as a 200, which was httpx
+  normalising the dot segment away before the request left the client; a real
+  server answers 404. Both were checked against a live server before anything
+  was changed. A bug hunt that trusts its own instrument finds bugs that are not
+  there, and "fixing" those is worse than missing a real one.
+- **The invariants the documentation claims are enforced, are.**
+  `execution_lag_bars: 0` raises; a config naming two symbols raises with a
+  message that says which two and why; a malformed override, an out-of-range
+  value and an unknown config section each produce a typed message and a
+  non-zero exit with no traceback. Sixteen bad CLI invocations, zero tracebacks.
+  The one documented claim that did not hold was the model-name one above, and
+  the README now describes what actually happens rather than what was intended.
 - **`models.attach_economics`** — fills the economic columns, drops
   `NO_BACKTEST`, adds `LOW_DSR`, and re-ranks. This is the step where ranking
   switches from IC t-stat to net Sharpe (ADR 0007).

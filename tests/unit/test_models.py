@@ -105,6 +105,18 @@ def test_building_an_unknown_model_lists_the_known_ones():
         build_model("magic", seed=1)
 
 
+def test_an_unregistered_candidate_stops_the_leaderboard(dataset, splits):
+    # A missing optional dependency earns a FAILED row so the rest of the
+    # leaderboard still means something — torch is two gigabytes and a
+    # researcher may knowingly do without it. A *typo* is a different failure:
+    # continuing produces a leaderboard the researcher reads as though the model
+    # they meant to run had been on it, with the trial count to match.
+    features, labels = dataset
+    config = ModelsConfig(candidates=["logistic", "lightgbmm"])
+    with pytest.raises(ModelError, match="not registered"):
+        build_leaderboard(features, labels, splits, config, seed=1)
+
+
 # --- parameters reaching the estimator -------------------------------------
 #
 # The registry is the only path a tuned parameter takes to a model: `tune_model`

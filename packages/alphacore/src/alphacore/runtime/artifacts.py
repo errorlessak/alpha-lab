@@ -91,9 +91,18 @@ class RunDirectory:
             The absolute path.
 
         Raises:
-            ArtifactExistsError: If the name escapes the run directory.
+            ArtifactExistsError: If the name escapes the run directory, or names
+                something the filesystem cannot express.
         """
-        candidate = (self.path / name).resolve()
+        try:
+            candidate = (self.path / name).resolve()
+        except (OSError, ValueError) as exc:
+            # A NUL byte, or a component past the platform's length limit.
+            # `resolve()` raises rather than reporting absence, and letting that
+            # out means a caller sees `ValueError` from a method documented to
+            # raise `ArtifactExistsError`.
+            msg = f"Artifact name {name!r} is not a usable path: {exc}."
+            raise ArtifactExistsError(msg) from exc
         if not candidate.is_relative_to(self.path):
             msg = f"Artifact name {name!r} escapes run directory {self.path}."
             raise ArtifactExistsError(msg)
@@ -316,7 +325,14 @@ class ArtifactStore:
         """
         if not run_id or run_id in {".", ".."} or "/" in run_id or "\\" in run_id:
             return None
-        candidate = (self.root / run_id).resolve()
+        try:
+            candidate = (self.root / run_id).resolve()
+        except (OSError, ValueError):
+            # A name the filesystem cannot express — a NUL byte, or a component
+            # past the platform's length limit. `Path.is_dir()` swallows these
+            # and reports absence; `resolve()` raises, and an uncaught
+            # `ValueError` here reaches the API as a 500 in `text/plain`.
+            return None
         if candidate.parent != self.root:
             return None
         return candidate

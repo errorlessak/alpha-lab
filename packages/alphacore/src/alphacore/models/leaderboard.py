@@ -27,7 +27,7 @@ from alphacore.errors import ModelError
 from alphacore.eval.classification import classification_metrics
 from alphacore.models.baselines import MANDATORY_BASELINES
 from alphacore.models.oof import fit_predict_oof
-from alphacore.models.registry import build_model
+from alphacore.models.registry import build_model, registered_models
 from alphacore.runtime.logging import logger
 
 if TYPE_CHECKING:
@@ -383,11 +383,28 @@ def score_models(  # noqa: PLR0913 - each argument is a distinct scoring input
         the predictions.
 
     Raises:
-        ModelError: If no model could be scored.
+        ModelError: If a candidate is not a registered name, or if no model
+            could be scored.
     """
     # Baselines are appended rather than substituted: a config that names one
     # explicitly should not cause it to be scored twice.
     names = list(dict.fromkeys([*config.candidates, *MANDATORY_BASELINES]))
+
+    # An unregistered name and an uninstallable one are different failures and
+    # must not be reported the same way. A missing extra is an environment fact
+    # a researcher may knowingly accept — torch is two gigabytes — and it earns
+    # a `FAILED` row so the rest of the leaderboard still means something. A
+    # name that is not in the registry is a typo in the config, and continuing
+    # produces a leaderboard the researcher will read as though the model they
+    # meant to run had been on it.
+    known = set(registered_models())
+    unknown = [name for name in names if name not in known]
+    if unknown:
+        msg = (
+            f"models.candidates names {unknown}, which are not registered. "
+            f"Registered: {list(registered_models())}."
+        )
+        raise ModelError(msg)
     trials = dict(n_trials_by_model or {})
     tuned = dict(params_by_model or {})
 

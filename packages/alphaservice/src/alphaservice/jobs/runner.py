@@ -43,6 +43,11 @@ if TYPE_CHECKING:
 
 __all__ = ["JobRunner", "execute_job"]
 
+_ORPHAN_SCAN_LIMIT: Final[int] = 1_000
+"""How far back a starting runner looks for jobs stranded `queued`. Generous
+enough that a real store is covered in one pass, bounded so a corrupted database
+cannot make startup unbounded."""
+
 DEFAULT_MAX_WORKERS: Final[int] = 1
 """§14.2 says one to two. One by default: a second concurrent run doubles peak
 memory for a tool whose bottleneck is a single researcher's attention."""
@@ -95,6 +100,34 @@ class JobRunner:
         self._futures: dict[str, Future[None]] = {}
         self._paused = False
         self._pending: list[tuple[str, JobType, str]] = []
+        self._reap_orphans()
+
+    def _reap_orphans(self) -> None:
+        """Close out jobs left `queued` by a process that is no longer running.
+
+        `submit` dispatches immediately, so a job is `queued` only in the window
+        between the row being written and the executor accepting it. Nothing
+        ever picks a queued job up later — not this runner, not any other. A row
+        still in that state when a runner starts therefore belongs to a process
+        that died holding it, and it will stay there forever, indistinguishable
+        in the jobs list from one that is about to run.
+
+        ADR 0008 says jobs do not survive a restart. This does not change that:
+        it makes the record say so instead of lying.
+
+        `running` is deliberately left alone. A worker may be mid-write on a run
+        directory, and marking its job failed from another process would
+        contradict the artifact it is about to finish.
+        """
+        for record in self.store.list_jobs(status=JobStatus.QUEUED, limit=_ORPHAN_SCAN_LIMIT):
+            self.store.mark_finished(
+                record.job_id,
+                JobStatus.FAILED,
+                error=(
+                    "The service restarted before this job started. Nothing resumes a queued "
+                    "job (ADR 0008) — submit it again."
+                ),
+            )
 
     def __repr__(self) -> str:
         """Return a debug representation naming the store."""
@@ -219,6 +252,33 @@ class JobRunner:
         self._executor.shutdown(wait=wait)
 
 
+def _failure_detail(exc: BaseException) -> str:
+    """Render a failure for the `error` field the UI shows.
+
+    The full traceback is written to the job's log either way — that is what the
+    log is for. This is the one line a reader sees first, and §13.5 asks it to
+    name the cause and the fix.
+
+    Args:
+        exc: The exception that ended the job.
+
+    Returns:
+        The exception's own message when it is an `AlphaError`, whose messages
+        are written to be read — "Could not parse YAML in pyproject.toml:
+        expected '<document start>'" is the whole answer, and forty frames of
+        virtualenv paths in front of it are not. Anything else is a bug rather
+        than a bad request, and for those the traceback is the most useful thing
+        anyone can be shown.
+    """
+    from alphacore.errors import AlphaError  # noqa: PLC0415 - worker-side import
+    from alphacore.runtime.logging import logger  # noqa: PLC0415 - worker-side import
+
+    logger.opt(exception=exc).error("the job failed")
+    if isinstance(exc, AlphaError):
+        return str(exc)
+    return "".join(traceback.format_exception(exc))
+
+
 def execute_job(
     job_id: str,
     store_path: str,
@@ -259,9 +319,16 @@ def execute_job(
         if _is_cancellation(exc):
             store.mark_finished(job_id, JobStatus.CANCELLED, error=str(exc))
         else:
-            store.mark_finished(
-                job_id, JobStatus.FAILED, error="".join(traceback.format_exception(exc))
-            )
+            # The traceback goes to the log, which is what it is for; the
+            # `error` field is what the UI puts in front of a reader, and §13.5
+            # asks that to name the cause and the fix. Every library error here
+            # is an `AlphaError` whose message already does — "Could not parse
+            # YAML in pyproject.toml: expected '<document start>'" is the whole
+            # answer, and forty frames of venv paths in front of it are not.
+            #
+            # Anything else is a bug rather than a bad request, and for those
+            # the traceback *is* the most useful thing anyone can be shown.
+            store.mark_finished(job_id, JobStatus.FAILED, error=_failure_detail(exc))
     else:
         store.mark_finished(job_id, JobStatus.COMPLETED, run_id=run_id)
     finally:

@@ -44,6 +44,25 @@ def test_create_run_refuses_an_id_that_is_not_a_child_of_the_store(store, run_id
         store.create_run(run_id)
 
 
+# A NUL byte cannot be in a filename, and the operating system says so by
+# raising `ValueError` from `stat` rather than by reporting the file missing.
+# `Path.is_dir()` swallows that; `Path.resolve()` does not, so the check that a
+# run id names a child of the store has to say what an unusable name means.
+# Reached from the API as `GET /api/v1/runs/%00`, which answered 500 in
+# `text/plain` — the one response shape §14.1 rules out.
+@pytest.mark.parametrize("run_id", ["\x00", "a\x00b"])
+def test_open_run_refuses_an_id_the_filesystem_cannot_express(store, run_id):
+    with pytest.raises(RunNotFoundError):
+        store.open_run(run_id)
+
+
+@pytest.mark.parametrize("name", ["\x00", "a\x00b.json", "models/\x00/model.pkl"])
+def test_artifact_path_refuses_a_name_the_filesystem_cannot_express(store, name):
+    run = store.create_run("run-a")
+    with pytest.raises(ArtifactExistsError):
+        run.artifact_path(name)
+
+
 def test_write_and_read_json_round_trip(store):
     run = store.create_run("run-a")
     run.write_json("tearsheet.json", {"sharpe": 0.71, "model": "lightgbm"})

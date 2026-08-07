@@ -102,6 +102,68 @@ def test_a_job_with_a_broken_config_fails_with_its_error(runner, tmp_path):
     assert str(missing.name) in record.error
 
 
+def test_a_library_error_reaches_the_reader_as_its_message_not_a_traceback(runner, tmp_path):
+    # The UI puts this field in front of a reader, and §13.5 asks it to name the
+    # cause and the fix. `ConfigError` already does; forty frames of virtualenv
+    # paths in front of it do not, and they publish the server's own filesystem
+    # layout into the browser.
+    not_a_config = tmp_path / "pyproject.toml"
+    not_a_config.write_text('[project]\nname = "x"\n', encoding="utf-8")
+
+    job = runner.submit(job_type=JobType.INGEST, config_ref=not_a_config)
+    assert _await_terminal(runner, job.job_id) is JobStatus.FAILED
+
+    error = runner.get(job.job_id).error or ""
+    assert "Could not parse YAML" in error
+    assert "Traceback (most recent call last)" not in error
+    assert "site-packages" not in error
+
+
+def test_a_queued_job_from_a_dead_process_is_closed_out_at_startup(tmp_path, repo_root):
+    # `submit` dispatches immediately and nothing ever picks a queued job up
+    # later, so a row still queued when a runner starts belongs to a process
+    # that died holding it. Left alone it sits in the jobs list forever, looking
+    # exactly like one that is about to run.
+    store = JobStore(tmp_path / "jobs.sqlite")
+    orphan = store.create(
+        job_type=JobType.FULL_RUN,
+        config_ref=str(repo_root / "configs" / "experiments" / "smoke.yaml"),
+    )
+    assert store.get(orphan.job_id).status is JobStatus.QUEUED
+
+    successor = JobRunner(
+        store=store,
+        data_dir=tmp_path / "lake",
+        runs_dir=tmp_path / "runs",
+        executor_factory=lambda: ThreadPoolExecutor(max_workers=1),
+    )
+    try:
+        record = store.get(orphan.job_id)
+        assert record.status is JobStatus.FAILED
+        assert "restarted" in (record.error or "")
+    finally:
+        successor.shutdown()
+
+
+def test_startup_does_not_touch_a_job_that_is_running(tmp_path):
+    # A worker may be mid-write on a run directory. Marking its job failed from
+    # another process would contradict the artifact it is about to finish.
+    store = JobStore(tmp_path / "jobs.sqlite")
+    live = store.create(job_type=JobType.INGEST, config_ref="whatever.yaml")
+    store.mark_running(live.job_id)
+
+    successor = JobRunner(
+        store=store,
+        data_dir=tmp_path / "lake",
+        runs_dir=tmp_path / "runs",
+        executor_factory=lambda: ThreadPoolExecutor(max_workers=1),
+    )
+    try:
+        assert store.get(live.job_id).status is JobStatus.RUNNING
+    finally:
+        successor.shutdown()
+
+
 def test_a_failing_job_does_not_take_the_runner_down(runner, smoke_config_path, tmp_path):
     broken = runner.submit(job_type=JobType.INGEST, config_ref=tmp_path / "nope.yaml")
     _await_terminal(runner, broken.job_id)

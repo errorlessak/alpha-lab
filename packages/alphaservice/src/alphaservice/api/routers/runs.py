@@ -872,12 +872,24 @@ def export_artifact(run: RunDir, artifact: str) -> FileResponse:
         Problem: With 404 if the artifact does not exist, or 400 if the name is
             not an artifact this service will serve.
     """
-    if any(part in artifact for part in ("..", "\\")) or artifact.startswith("/"):
+    # Control characters are checked here as well as the traversal sequences,
+    # because a NUL byte is not a name the filesystem can express at all:
+    # `Path.resolve()` raises on one rather than reporting the file missing.
+    # `ArtifactStore` refuses it too, but as "not a usable path", which maps to
+    # a 409 whose title would be wrong. This is a bad request.
+    if (
+        any(part in artifact for part in ("..", "\\"))
+        or artifact.startswith("/")
+        or any(character < " " for character in artifact)
+    ):
         raise Problem(
             status_code=status.HTTP_400_BAD_REQUEST,
             problem_type="invalid-artifact",
             title="Invalid artifact name",
-            detail="Artifact names are relative to the run directory and may not escape it.",
+            detail=(
+                "Artifact names are relative to the run directory, may not escape it, "
+                "and may not contain control characters."
+            ),
         )
     path = run.artifact_path(artifact)
     if path.suffix not in _EXPORTABLE_SUFFIXES or not path.is_file():

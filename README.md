@@ -123,10 +123,16 @@ work without any of them:
 | `dl` | PyTorch (~120 MB download) | the `lstm`, `lstm_stacked`, `bilstm`, `gru`, `tcn` and `ensemble_gbm_lstm` candidates |
 | `tune` | Optuna | `models.tuning.enabled: true` |
 
-`just setup-dl` installs all three. Without them, a config naming a model you
-have not installed fails with a message naming the extra rather than a
-traceback, and the tests that need one skip rather than fail. **Nothing above is
-needed for the smoke config.**
+`just setup-dl` installs all three, and the tests that need one skip rather than
+fail without it. **Nothing above is needed for the smoke config.**
+
+The two ways a candidate can go wrong are reported differently, on purpose. A
+model you have not *installed* leaves a `FAILED` row on the leaderboard naming
+the extra it needs — torch is two gigabytes and doing without it is a decision a
+researcher is allowed to make, so the rest of the leaderboard still means
+something. A model that is not a registered *name* stops the run and lists what
+is available: that is a typo, and continuing would hand back a leaderboard you
+would read as though the model you meant had been on it.
 
 ```bash
 uv run alpha doctor
@@ -316,7 +322,7 @@ file is current.
 
 | | |
 |---|---|
-| Python tests | 1,100+, 89% coverage on `alphacore` |
+| Python tests | 1,121, 89.5% coverage on `alphacore` |
 | Leakage suite | 75 tests, all seven §12.3 canaries with controls |
 | Types | mypy `strict` on 105 files, `tsc --noEmit` on the app |
 | Initial JS | 99 KB gzipped against a 200 KB budget |

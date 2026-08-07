@@ -38,6 +38,31 @@ the §16 run directory layout) may change in a minor release.
 
 ### Fixed
 
+- **A typo in `models.candidates` produced a leaderboard instead of an error.**
+  An unregistered name was reported exactly like a model whose optional
+  dependency is missing: a `FAILED` row, a warning in the log, and a full
+  leaderboard for everything else — which the researcher reads as though the
+  model they meant to run had been on it, with the trial count feeding the
+  deflated Sharpe haircut to match. The two are now separated. A missing extra
+  still earns a `FAILED` row, because doing without torch is a decision a
+  researcher is allowed to make. A name that is not in the registry stops the
+  run and lists what is available.
+- **A NUL byte in a path segment answered `500 Internal Server Error` in
+  `text/plain`** — the one response shape §14.1 rules out. `Path.resolve()`
+  raises `ValueError` on one rather than reporting the file missing, and
+  `Path.is_dir()` had been swallowing it. `GET /api/v1/runs/%00` and
+  `.../export/a%00b.json` are now a problem document.
+- **A failed job's `error` field was a raw traceback.** The UI puts that field
+  in front of a reader, and forty frames of virtualenv paths in place of
+  "Could not parse YAML in pyproject.toml: expected '<document start>'" is the
+  opposite of §13.5's rule — it also published the server's filesystem layout
+  into the browser. Library errors now arrive as their own message; anything
+  else is a bug rather than a bad request and keeps its traceback, which is
+  written to the job log either way.
+- **Jobs left `queued` by a process that died stayed queued forever**,
+  indistinguishable in the jobs list from one about to run. A starting runner
+  now closes them out, saying so. `running` is deliberately untouched: a worker
+  may be mid-write on a run directory.
 - **A run id could escape the artifact store.** `GET
   /api/v1/runs/%2E%2E/export/README.md` served a file from the store's parent
   directory: `RunDirectory.artifact_path` refused to escape a run directory,
@@ -73,6 +98,7 @@ the §16 run directory layout) may change in a minor release.
 
 ### Changed
 
+- `.env.example` names the override flag correctly — it is `--set`, not `-o`.
 - `.env.example` documents only variables the code reads. Removed
   `ALPHA__API_TOKEN` — the service has no authentication and the variable
   implied otherwise — along with `ALPHA__ALPHAVANTAGE_API_KEY` (the provider is

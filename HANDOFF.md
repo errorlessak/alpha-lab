@@ -183,8 +183,8 @@ what it found on the way, is in `PROGRESS.md`; the short version is that the
 hardening pass it replaced had left three defects behind that a packaging pass
 was always going to trip over.
 
-Last `just verify`, green end to end: **1109 Python tests passed, 40 web tests
-passed, 75 leakage tests passed, 13 Playwright tests passed**, coverage 89.43%,
+Last `just verify`, green end to end: **1121 Python tests passed, 40 web tests
+passed, 75 leakage tests passed, 13 Playwright tests passed**, coverage 89.49%,
 mypy strict clean on 105 source files, `tsc` clean, both import contracts kept,
 the smoke run completing the golden path, and 99.0 KB of initial JS against the
 200 KB budget.
@@ -286,6 +286,21 @@ Break these and the project stops meaning anything.
   shell fails. `ALPHA__JOBS_DB` did exactly that.
   `tests/unit/test_config.py` now derives the list from
   `alphaservice.api.settings` so the two packages cannot drift.
+- **An unregistered model name and an uninstallable one are different
+  failures.** A missing extra earns a `FAILED` leaderboard row naming the extra,
+  because doing without torch is a decision a researcher may knowingly make and
+  the rest of the leaderboard still means something. A name that is not in the
+  registry raises from `score_models` before any fold is scored — it is a typo,
+  and a leaderboard that quietly omits the model you meant to run is worse than
+  no leaderboard.
+- **A path a caller supplies may be one the filesystem cannot express.**
+  `Path.resolve()` raises `ValueError` on a NUL byte rather than reporting
+  absence, and `Path.is_dir()` swallows it — so swapping one for the other turns
+  a 404 into an unhandled 500. Both `_run_path` and `artifact_path` catch it.
+- **A job's `error` field is read by a person, not a debugger.** Library errors
+  go in as their own message; the traceback goes to the job log. Anything that
+  is not an `AlphaError` keeps its traceback, because for a real bug that is the
+  most useful thing anyone can be shown.
 - **A run id names a direct child of the store, and `ArtifactStore` checks it.**
   `RunDirectory.artifact_path` refusing to escape a run directory is worth
   nothing if the run directory can be the store's parent —
@@ -399,7 +414,10 @@ that job runs, the Dockerfile is unverified. Treat the first CI run as the test.
   Fixing it properly means not growing the page after the fetch, which means
   pagination or a fixed-height virtualised list.
 - **Jobs do not survive an API restart.** Nothing resumes them; the run
-  directory will not claim to be `completed`. ADR 0008 names the design.
+  directory will not claim to be `completed`. ADR 0008 names the design. A
+  starting runner now marks anything left `queued` as failed rather than leaving
+  it in the list forever, but `running` is untouched — a worker may be mid-write
+  on a run directory, and a second process cannot know whether it died.
 - **No authentication anywhere.** `alpha serve` binds loopback and warns if told
   to bind anything else.
 - `GET /runs/{id}/shap/explain?ts=` is not implemented — it needs a fitted model
