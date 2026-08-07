@@ -38,6 +38,20 @@ the §16 run directory layout) may change in a minor release.
 
 ### Fixed
 
+- **`npm ci` failed on a clean clone.** `web/package.json` asked for
+  `eslint ^10.8.0` while the lockfile resolved 9.39.5, and
+  `eslint-plugin-react-hooks` peer-caps at 9 — so the two files disagreed and
+  `npm ci` refused to install. Invisible on any machine that already had
+  `node_modules`, and fatal on every machine that did not. Pinned to `^9.39.0`,
+  which is the tree that has been passing lint all along; upgrading to eslint 10
+  needs the plugin ecosystem and is a change of its own.
+- **`just types` passed locally and failed in CI** because `torch` was missing
+  from the mypy override list. Every optional extra has to be there: `import
+  alphacore` must work without them, so a clone with no `dl` extra has no torch
+  to resolve at all, and mypy reports a missing import as an error. `optuna` was
+  missing for the same reason.
+- Cleared a high-severity advisory in a transitive dev dependency
+  (`brace-expansion`). `npm audit` reports zero.
 - **A typo in `models.candidates` produced a leaderboard instead of an error.**
   An unregistered name was reported exactly like a model whose optional
   dependency is missing: a `FAILED` row, a warning in the log, and a full

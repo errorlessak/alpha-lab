@@ -137,12 +137,17 @@ namespace_packages = true
 # explicitly rather than relying on a blanket `ignore_missing_imports`, so a
 # newly added untyped dependency is a decision rather than an accident.
 #
-# The optional extras appear here for a second reason: `import alphacore` must
-# work without them (§10.3), so a clone with no `gbm` extra has no lightgbm to
-# resolve at all. On a machine that *does* have it, lightgbm now ships
-# `py.typed` and mypy reports this section as unused. That note is the price of
-# type-checking both installations with one configuration — do not remove the
-# entry to silence it, or `just types` fails on a fresh clone.
+# **Every optional extra belongs here too.** `import alphacore` must work
+# without them (§10.3), so a clone with no `gbm` extra has no lightgbm to
+# resolve *at all* — and mypy reports a missing import as an error, not as an
+# unknown type. `torch` was missing from this list, and `just types` passed on
+# every machine with the `dl` extra installed and failed in CI, which syncs
+# `gbm` and `tune` and not `dl`.
+#
+# lightgbm, xgboost, torch and optuna all ship `py.typed`, so on a machine that
+# *does* have them mypy reports this section as unused. That note is the price
+# of type-checking both installations with one configuration — do not remove an
+# entry to silence it, or a fresh clone goes red.
 [[tool.mypy.overrides]]
 module = [
     "duckdb.*",
@@ -151,9 +156,11 @@ module = [
     "pandera.*",
     "catboost.*",
     "lightgbm.*",
+    "optuna.*",
     "pyarrow.*",
     "scipy.*",
     "sklearn.*",
+    "torch.*",
     "xgboost.*",
     "yfinance.*",
 ]

@@ -286,6 +286,17 @@ Break these and the project stops meaning anything.
   shell fails. `ALPHA__JOBS_DB` did exactly that.
   `tests/unit/test_config.py` now derives the list from
   `alphaservice.api.settings` so the two packages cannot drift.
+- **Every optional extra needs an entry in the mypy override list**
+  (`pyproject.toml`). `import alphacore` must work without them, so a clone with
+  no `dl` extra has no torch to resolve at all, and mypy calls a missing import
+  an error rather than an unknown type. `torch` and `optuna` were missing, which
+  is why `just types` was green on every machine with the extras and red in CI.
+  The "unused section" notes on a machine that *has* them are the price.
+- **`node_modules` hides a broken lockfile.** `package.json` and
+  `package-lock.json` disagreed about eslint for some time and nothing local
+  noticed, because `npm ci` is only run by `just setup` and CI. If you change a
+  dependency, check `npm ci` in an empty directory holding only the two files —
+  that is what a fresh clone does.
 - **An unregistered model name and an uninstallable one are different
   failures.** A missing extra earns a `FAILED` leaderboard row naming the extra,
   because doing without torch is a decision a researcher may knowingly make and

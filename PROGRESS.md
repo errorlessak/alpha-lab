@@ -1042,6 +1042,28 @@ about what the harness was measuring.
   server answers 404. Both were checked against a live server before anything
   was changed. A bug hunt that trusts its own instrument finds bugs that are not
   there, and "fixing" those is worse than missing a real one.
+- **The first CI run found three things no local check could.** It went red on
+  four of six jobs, and two causes covered all four.
+
+  `npm ci` failed on `web`, `end-to-end` and inside the Docker build's node
+  stage: `package.json` asked for `eslint ^10.8.0`, the lockfile held 9.39.5,
+  and `eslint-plugin-react-hooks` peer-caps at 9. **A clean clone could not
+  install the web app.** No local run had noticed for as long as the mismatch
+  existed, because `node_modules` was already on disk and `npm ci` is only run
+  by `just setup` and CI. Reproduced by copying the two files into an empty
+  directory and running `npm ci` there — which is the only honest local
+  simulation of a fresh clone.
+
+  `just types` failed because `torch` had no entry in the mypy override list.
+  Every machine that had run `just setup-dl` type-checked clean; CI syncs `gbm`
+  and `tune` and not `dl`, so mypy could not resolve `import torch` and called
+  it an error. The rule was already written down for lightgbm and the list had
+  simply not been kept — `optuna` was missing too.
+
+  **This is the argument for the CI job existing at all.** Both defects were in
+  the repository before this work started, both were invisible to every local
+  command, and both broke the first thing a stranger would do.
+
 - **The invariants the documentation claims are enforced, are.**
   `execution_lag_bars: 0` raises; a config naming two symbols raises with a
   message that says which two and why; a malformed override, an out-of-range
