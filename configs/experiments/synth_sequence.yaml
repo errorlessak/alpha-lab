@@ -1,0 +1,79 @@
+# A sequence model on the committed fixture (§10.3, Phase 13).
+#
+# Same offline synthetic series as smoke.yaml, run against an LSTM, a GRU and
+# the GBM-plus-LSTM ensemble alongside the mandatory baselines. Needs the
+# optional `dl` extra:
+#
+#   uv sync --all-packages --extra gbm --extra dl
+#   alpha run -c configs/experiments/synth_sequence.yaml
+#
+# The point is not that the network wins. The series is a random walk, so the
+# honest expected result is that it does not — and that it sits on the same
+# leaderboard, with the same deflated Sharpe haircut and the same shuffled-label
+# baseline beside it, is what makes the absence of an edge readable (§19).
+#
+# The folds are wider than smoke.yaml's because a sequence model spends the
+# first `seq_len - 1` bars of every contiguous run on incomplete history and
+# refuses to fabricate the shortfall (ADR 0011).
+
+meta:
+  name: synth-sequence
+  description: Offline LSTM, GRU and GBM ensemble on the committed synthetic fixture.
+  seed: 20260727
+
+data:
+  provider: csv
+  csv_dir: samples
+  symbols: [SYNTH]
+  benchmark: SYNTH
+  interval: 1d
+  calendar: XNYS
+  start: "2015-01-02"
+  end: "2024-12-31"
+  adjustment: unadjusted_plus_factor
+  quality:
+    max_missing_bar_pct: 0.5
+    max_zero_volume_pct: 0.5
+    fail_on_ohlc_violation: true
+
+features:
+  specs:
+    - {name: sma, params: {window: [10, 50]}}
+    - {name: rsi, params: {window: [14]}}
+    - {name: atr, params: {window: [14]}}
+    - {name: realised_vol, params: {window: [20]}}
+    - {name: log_return, params: {window: [1, 5]}}
+  lags: [1]
+  prune:
+    method: correlation
+    threshold: 0.95
+
+labels:
+  method: triple_barrier
+  horizon_bars: 5
+  triple_barrier:
+    profit_mult: 2.0
+    loss_mult: 1.0
+    vertical_bars: 5
+    atr_window: 14
+
+cv:
+  scheme: walkforward
+  walkforward:
+    train_bars: 756
+    test_bars: 252
+    anchored: false
+    step_bars: 252
+  embargo_pct: 0.01
+  min_train_bars: 500
+
+models:
+  candidates: [baseline_buyhold, baseline_momentum, logistic, lstm, gru, ensemble_gbm_lstm]
+  calibrate: sigmoid
+  tuning:
+    enabled: false
+    n_trials: 5
+    timeout_s: 60
+
+reporting:
+  bootstrap_samples: 200

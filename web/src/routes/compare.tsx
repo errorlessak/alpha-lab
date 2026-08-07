@@ -12,7 +12,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { EmptyState, ErrorState, SkeletonLines } from '../components/states'
 import { api } from '../lib/api'
-import { fmtNum, fmtSigned, shortId } from '../lib/format'
+import { fmtNum, fmtSigned, runPickerLabel, shortId } from '../lib/format'
 
 interface CompareSearch {
   a?: string
@@ -54,13 +54,13 @@ function Compare() {
         <Picker
           label="run A"
           value={a ?? ''}
-          options={options.map((row) => row.run_id)}
+          options={options}
           onChange={(next) => void navigate({ search: (prev) => ({ ...prev, a: next }) })}
         />
         <Picker
           label="run B"
           value={b ?? ''}
-          options={options.map((row) => row.run_id)}
+          options={options}
           onChange={(next) => void navigate({ search: (prev) => ({ ...prev, b: next }) })}
         />
       </div>
@@ -153,7 +153,7 @@ function Picker({
 }: {
   label: string
   value: string
-  options: string[]
+  options: readonly { run_id: string; name?: string | null; created_at?: string | null }[]
   onChange: (next: string) => void
 }) {
   const id = `compare-${label.replace(/\s/g, '-')}`
@@ -170,8 +170,8 @@ function Picker({
       >
         <option value="">choose…</option>
         {options.map((option) => (
-          <option key={option} value={option}>
-            {shortId(option)}
+          <option key={option.run_id} value={option.run_id}>
+            {runPickerLabel(option)}
           </option>
         ))}
       </select>

@@ -1,0 +1,11 @@
+# Generated files, formatted by their own generators.
+#
+# `routeTree.gen.ts` is written by the TanStack Router plugin on every dev
+# server start and every build; `schema.d.ts` is written by
+# `openapi-typescript` from `docs/openapi.json` (`just client`). Both are
+# committed. Letting Prettier reformat them makes the working tree flip dirty
+# depending on whether `just fmt` or `vite build` ran last, which turns a clean
+# `just verify` into an uncommitted diff nobody wrote.
+src/routeTree.gen.ts
+src/api/generated/
+dist/

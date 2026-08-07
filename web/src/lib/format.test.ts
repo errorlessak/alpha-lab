@@ -9,7 +9,16 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { fmtBps, fmtDate, fmtInterval, fmtNum, fmtPct, fmtSigned, shortId } from './format'
+import {
+  fmtBps,
+  fmtDate,
+  fmtInterval,
+  fmtNum,
+  fmtPct,
+  fmtSigned,
+  runPickerLabel,
+  shortId,
+} from './format'
 
 describe('fmtNum', () => {
   it('renders to a fixed number of decimals', () => {
@@ -104,5 +113,29 @@ describe('fmtDate', () => {
   it('renders an unparseable value as an em dash rather than Invalid Date', () => {
     expect(fmtDate('not a date')).toBe('—')
     expect(fmtDate(null)).toBe('—')
+  })
+})
+
+describe('runPickerLabel', () => {
+  const run = {
+    run_id: '2026-07-28T05-40-19Z_smoke_5ad0f1',
+    name: 'smoke',
+    created_at: '2026-07-28T05:40:19Z',
+  }
+
+  it('carries what tells two runs of the same config apart', () => {
+    // The config hash is deliberately shared by every run of a config, so a
+    // picker that shows only the hash offers thirteen identical options.
+    const label = runPickerLabel(run)
+    expect(label).toContain('5ad0f1')
+    expect(label).toContain('smoke')
+    expect(label).toContain('2026-07-28 05:40')
+  })
+
+  it('renders a run with no name or timestamp without printing undefined', () => {
+    const label = runPickerLabel({ run_id: 'x_y_abc123', name: null, created_at: null })
+    expect(label).toContain('abc123')
+    expect(label).not.toContain('undefined')
+    expect(label).not.toContain('null')
   })
 })

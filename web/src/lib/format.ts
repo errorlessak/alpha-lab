@@ -96,3 +96,26 @@ export function fmtDuration(seconds: Maybe): string {
   const minutes = Math.floor(seconds / 60)
   return `${minutes}m ${Math.round(seconds - minutes * 60)}s`
 }
+
+/**
+ * How a run reads in a picker.
+ *
+ * The short id is the *config* hash, so every run of the same configuration
+ * shares it — a list labelled by hash alone offers a dozen identical options
+ * and no way to choose between them. The experiment name and the minute it was
+ * created are what actually distinguish two runs of one config, which is the
+ * comparison this picker exists to set up.
+ */
+export function runPickerLabel(run: {
+  run_id: string
+  name?: string | null
+  created_at?: string | null
+}): string {
+  const parts = [shortId(run.run_id)]
+  if (run.name) parts.push(run.name)
+  if (run.created_at) {
+    const created = fmtDateTime(run.created_at)
+    if (created !== MISSING) parts.push(created)
+  }
+  return parts.join(' · ')
+}

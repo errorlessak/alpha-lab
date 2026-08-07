@@ -153,6 +153,25 @@ describe('critique', () => {
     expect(note?.body).toContain('zero')
   })
 
+  it('does not call a negative point estimate positive', () => {
+    // The margin exists to stop a reader overlooking a bad result. A note that
+    // states the opposite of the number beside it is worse than no note.
+    const notes = critique(
+      tearsheet({ leaderboard: [row({ oos_net_sharpe: -0.4, sharpe_ci: [-1.67, 0.83] })] }),
+    )
+    const note = notes.find((n) => n.id === 'sharpe-ci')
+    expect(note?.body).not.toContain('positive')
+    expect(note?.body).toContain('negative')
+  })
+
+  it('still says the point estimate is positive when it is', () => {
+    const notes = critique(
+      tearsheet({ leaderboard: [row({ oos_net_sharpe: 0.6, sharpe_ci: [-0.3, 1.9] })] }),
+    )
+    const note = notes.find((n) => n.id === 'sharpe-ci')
+    expect(note?.body).toContain('positive')
+  })
+
   it('objects when the strategy breaks even below the cost it assumed', () => {
     const notes = critique(
       tearsheet({
@@ -214,7 +233,35 @@ describe('critique', () => {
     )
     const note = notes.find((n) => n.id === 'baseline-wins')
     expect(note).toBeDefined()
-    expect(note?.body).toContain('buy-and-hold')
+    expect(note?.headline).toContain('baseline_buyhold')
+    expect(note?.body).toContain('holding the asset')
+  })
+
+  it('does not blame buy-and-hold when a different baseline ranked first', () => {
+    const notes = critique(
+      tearsheet({
+        selected_model: 'baseline_momentum',
+        leaderboard: [row({ model: 'baseline_momentum' })],
+      }),
+    )
+    const note = notes.find((n) => n.id === 'baseline-wins')
+    expect(note?.body).not.toContain('buy-and-hold')
+    expect(note?.headline).toContain('baseline_momentum')
+  })
+
+  it('treats a shuffled-label baseline ranking first as its own alarm', () => {
+    // The most alarming leaderboard there is: labels whose relationship to the
+    // features was destroyed beat every real candidate.
+    const notes = critique(
+      tearsheet({
+        selected_model: 'baseline_shuffled',
+        leaderboard: [row({ model: 'baseline_shuffled' })],
+      }),
+    )
+    const note = notes.find((n) => n.id === 'baseline-wins')
+    expect(note?.severity).toBe('blocking')
+    expect(note?.body).toContain('shuffled')
+    expect(note?.body).not.toContain('buy-and-hold')
   })
 
   it('points out when a model is barely ahead of shuffled labels', () => {

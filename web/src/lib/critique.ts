@@ -162,12 +162,23 @@ export function critique(tearsheet: Tearsheet): MarginNote[] {
   const upper = interval?.[1]
   if (typeof lower === 'number' && typeof upper === 'number') {
     if (lower <= 0 && upper >= 0) {
+      // The sign of the point estimate has to be read from the run, not
+      // assumed. A margin note that calls a negative Sharpe positive is the
+      // one failure this gutter cannot afford: it is the thing a reader trusts
+      // to contradict the headline.
+      const point = top?.oos_net_sharpe ?? null
+      const sign =
+        point === null
+          ? 'The interval'
+          : point < 0
+            ? 'The point estimate is itself negative, and the interval'
+            : 'The point estimate is positive but the interval'
       notes.push({
         id: 'sharpe-ci',
         anchor: 'verdict',
         severity: 'blocking',
         headline: `Sharpe interval [${lower.toFixed(2)}, ${upper.toFixed(2)}]`,
-        body: 'contains zero. The point estimate is positive but the interval does not exclude no edge at all.',
+        body: `contains zero. ${sign} does not exclude no edge at all.`,
       })
     }
   }
@@ -188,12 +199,22 @@ export function critique(tearsheet: Tearsheet): MarginNote[] {
   // four candidates or none. Every leaderboard carries the five mandatory
   // baselines anyway, so "there were no models to beat it" is not a real case.
   if (top && isBaseline(top.model)) {
+    // Which baseline won changes what the reader should conclude, so the note
+    // has to read the leaderboard rather than assume buy-and-hold. A
+    // shuffled-label baseline in first place is the worst leaderboard this
+    // system can print, and it must not be reported as "nothing beat holding".
+    const body =
+      top.model === 'baseline_shuffled'
+        ? 'the shuffled-label baseline — the same estimator trained on labels whose relationship to the features was destroyed — outranked every real candidate. Nothing here is measuring signal.'
+        : top.model === 'baseline_buyhold' || top.model === 'baseline_always_long'
+          ? 'no model beat holding the asset. Whatever the candidates learned, it did not pay for the turnover it created.'
+          : 'a baseline with no fitted parameters outranked every candidate. Whatever the candidates learned, it did not pay for the turnover it created.'
     notes.push({
       id: 'baseline-wins',
       anchor: 'leaderboard',
       severity: 'blocking',
       headline: `${top.model} ranks first`,
-      body: 'no model beat buy-and-hold. Whatever the candidates learned, it did not pay for the turnover it created.',
+      body,
     })
   }
 
