@@ -5,6 +5,7 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { Plate } from '../components/Plate'
 import { stampFrom } from '../components/ProvenanceStamp'
+import { TableScroll } from '../components/TableScroll'
 import { ErrorState, SkeletonLines } from '../components/states'
 import { api } from '../lib/api'
 import { fmtNum } from '../lib/format'
@@ -61,7 +62,7 @@ function ModelsStage() {
           <ErrorState error={leaderboard.error} context={`GET /api/v1/runs/${runId}/leaderboard`} />
         ) : null}
 
-        <div className="overflow-x-auto">
+        <TableScroll label="Leaderboard">
           <table className="w-full border-collapse text-xs">
             <caption className="sr-only">Every candidate and every mandatory baseline</caption>
             <thead>
@@ -116,7 +117,7 @@ function ModelsStage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
 
         {shuffled ? (
           <p className="mt-4 max-w-prose text-xs leading-relaxed text-[color:var(--color-ink-muted)]">

@@ -1,0 +1,52 @@
+name: Feature request
+description: Propose something the system should be able to do.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before writing: `HANDOFF.md` §8 lists the known gaps, and
+        `ARCHITECTURE.md` §15 lists what was planned. If your idea is already
+        there, say so and explain why it should move up rather than starting
+        from scratch.
+
+        Two things this project will not do, whatever the justification:
+        connect to a broker or route an order, and take a shortcut that makes a
+        backtest look better than the evidence supports.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >
+        What you were trying to find out, and where the system stopped being
+        able to tell you. Describe the research question, not the
+        implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+      description: What should exist, and what it should be called.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: How it would be validated
+      description: >
+        Every claim this system makes has a test standing behind it. What test
+        would prove the feature works — and, if it is a statistical method,
+        what control would prove the test can fail?
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: >
+        Including the cost of a new dependency, if one is involved. See
+        `docs/decisions/0001-in-house-indicator-library.md` for the standard
+        this project holds them to.

@@ -100,9 +100,44 @@ def test_cli_override_beats_env(tmp_path):
     assert config.backtest.costs.commission_bps == 1.0
 
 
+# Every `ALPHA__*` variable that configures the process rather than the
+# experiment. `AlphaConfig` is `extra="forbid"`, so one missing from the
+# loader's exclusion set does not fall through harmlessly — it becomes a config
+# key and fails the load. `ALPHA__JOBS_DB` did exactly that: setting the
+# variable the API service reads made every `alpha run` in that shell fail.
+PROCESS_ENV = {
+    "ALPHA__RUNS_DIR": "/tmp/runs",
+    "ALPHA__DATA_DIR": "/tmp/data",
+    "ALPHA__JOBS_DB": "/tmp/runs/jobs.sqlite",
+    "ALPHA__WEB_DIST": "/app/web/dist",
+    "ALPHA__LOG_LEVEL": "DEBUG",
+    "ALPHA__API_TOKEN": "unused",
+    "ALPHA__ALPHAVANTAGE_API_KEY": "unused",
+}
+
+
 def test_process_env_vars_never_enter_the_config_tree():
     # Where the artifact store lives must not change config_hash.
-    assert env_overrides({"ALPHA__RUNS_DIR": "/tmp/x", "ALPHA__LOG_LEVEL": "DEBUG"}) == {}
+    assert env_overrides(PROCESS_ENV) == {}
+
+
+def test_process_env_vars_do_not_break_a_load(tmp_path):
+    config = load_config(write_config(tmp_path, MINIMAL), environ=PROCESS_ENV)
+    assert config.meta.name == "unit"
+
+
+def test_the_service_reads_no_env_var_the_loader_would_treat_as_config():
+    # The two halves are maintained in different packages, so the coupling is
+    # asserted rather than remembered.
+    from alphaservice.api import settings as service_settings  # noqa: PLC0415
+
+    service_vars = {
+        value
+        for name, value in vars(service_settings).items()
+        if name.endswith("_ENV_VAR") and isinstance(value, str)
+    }
+    assert service_vars, "the service should declare its environment variables as _ENV_VAR names"
+    assert env_overrides(dict.fromkeys(service_vars, "x")) == {}
 
 
 def test_env_overrides_ignore_unprefixed_variables():

@@ -1,0 +1,48 @@
+# `docker compose up` — the whole application, on a machine with nothing
+# installed but Docker.
+#
+#     docker compose up --build
+#     open http://127.0.0.1:8000
+#
+# The first start produces a run from the committed synthetic fixture, so the
+# index has something in it. That takes about ten seconds and needs no network.
+# Set ALPHA_SEED_SMOKE=0 to start with an empty store.
+
+services:
+  alpha-lab:
+    build:
+      context: .
+      # `--build-arg EXTRAS="--extra gbm --extra dl"` adds the sequence models
+      # and about 2 GB.
+      args:
+        EXTRAS: --extra gbm
+    image: alpha-lab:latest
+    # Loopback only, deliberately. This service has no authentication and can
+    # start jobs; publishing it on 0.0.0.0 is a decision, not a default.
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      ALPHA_SEED_SMOKE: "1"
+    volumes:
+      # Named rather than bind-mounted: the artifact store is the durable
+      # output, and a bind mount would inherit the host's ownership and defeat
+      # the non-root user in the image.
+      - alpha-data:/data
+      - alpha-runs:/runs
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request as r; r.urlopen('http://127.0.0.1:8000/api/v1/health').read()",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  alpha-data:
+  alpha-runs:

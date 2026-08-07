@@ -1,0 +1,40 @@
+# Everything the build does not read. A smaller context is a faster build, but
+# the reason these are listed is correctness: a host `.venv` or `node_modules`
+# copied into an image built for a different platform produces an environment
+# that imports on this machine and nowhere else.
+
+.git/
+.github/
+
+# Host environments and build outputs — rebuilt inside the image.
+.venv/
+web/node_modules/
+web/dist/
+web/playwright-report/
+web/test-results/
+
+# Caches.
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.import_linter_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# State. The image mounts /data and /runs as volumes; baking a host artifact
+# store into an image would ship someone else's results as though they were the
+# image's own.
+data/
+runs/
+
+# Not part of the running application.
+docs/
+tests/
+*.md
+.env
+.env.example

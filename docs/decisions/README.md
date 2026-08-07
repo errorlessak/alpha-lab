@@ -21,6 +21,8 @@ differently, which is exactly why it is written down.
 | [0010](0010-optuna-behind-an-extra.md) | Optuna behind a `tune` extra, imported lazily | Accepted |
 | [0011](0011-sequence-windows-are-cut-on-the-bar-grid.md) | Sequence windows cut on the bar grid, with the grid handed to the model | Accepted |
 | [0012](0012-sequence-models-train-on-cpu-by-default.md) | Sequence models train on CPU unless a device is named | Accepted |
+| [0013](0013-one-container-one-origin.md) | One container serving the API and the bundle from one origin, instead of nginx plus uvicorn | Accepted |
+| [0014](0014-text-only-colour-variants.md) | Text-only variants of the accent colours, instead of tinting the palette | Accepted |
 
 ## A numbering conflict, resolved
 

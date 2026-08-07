@@ -18,7 +18,12 @@
   --color-paper-sunk: #e4e6de;
   --color-rule: #c8cbc0;
   --color-ink: #191b18;
-  --color-ink-muted: #6b7069;
+  /* §13.2 specifies #6b7069. That measures 4.02:1 against the striped row fill
+     and 4.42:1 against the ground — under the 4.5:1 AA needs at the 12px this
+     interface uses it at, and it carries most of the secondary text on every
+     screen. Darkened until it clears, which costs two steps of lightness and
+     nothing else. */
+  --color-ink-muted: #626761;
 
   --color-prussian: #1e3a5f;
   --color-plum: #6c2b54;
@@ -26,11 +31,21 @@
   --color-oxblood: #7a2418;
   --color-sage: #3f6b57;
 
-  /* Link text, which is `--prussian` in light mode. Dark mode needs it lifted
-     further than §13.2's +12%: at #4f7cb0 a 14px link measures 4.33:1, under
-     the 4.5:1 AA needs, and §13.5's accessibility bar is not negotiable. The
-     structural prussian keeps the specified value — only text moves. */
+  /* Three text-only variants of the accents. The rule they share: the
+     structural colour keeps the value §13.2 specifies, because it is measured
+     as a fill or a stroke against a 3:1 bar, and only the *text* moves to
+     clear the 4.5:1 AA bar §13.5 sets. Splitting them is the only way to have
+     both; tinting the accent itself would change every plate.
+
+     Link — `--prussian` in light. Dark needs it lifted further than §13.2's
+     +12%: at #4f7cb0 a 14px link measures 4.33:1.
+     Caution — `--sulphur` is a hatch and a highlighter, and as 12px text on
+     the ground it measures 2.31:1. It is the worst offender in the palette.
+     Danger — `--oxblood` is fine in light and measures 3.92:1 on the striped
+     row fill in dark, which is where failed runs are labelled. */
   --color-link: #1e3a5f;
+  --color-caution-text: #7c6314;
+  --color-danger-text: #7a2418;
 
   /* Type ---------------------------------------------------------------- */
   --font-display: 'Bricolage Grotesque Variable', ui-sans-serif, system-ui, sans-serif;
@@ -76,9 +91,17 @@
     --color-oxblood: #c25a45;
     --color-sage: #6fa287;
     --color-link: #9cc0e8;
+    --color-caution-text: #e0bc55;
+    --color-danger-text: #c86b58;
   }
 }
 
+/* The same values again, for an explicit user choice rather than the system's.
+   Kept as a literal copy: a shared block would need `light-dark()` or a second
+   layer of indirection, and one of the two is going to be read by someone
+   debugging a colour at midnight. If you change a value above, change it here.
+   `tests/unit/test_source_encoding.py` will not catch a drift between them —
+   only the contrast check in the end-to-end suite will. */
 :root[data-theme='dark'] {
   --color-paper: #101210;
   --color-paper-sunk: #1a1d19;
@@ -92,4 +115,6 @@
   --color-oxblood: #c25a45;
   --color-sage: #6fa287;
   --color-link: #9cc0e8;
+  --color-caution-text: #e0bc55;
+  --color-danger-text: #c86b58;
 }

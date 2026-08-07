@@ -46,12 +46,26 @@ ENV_PREFIX: Final[str] = "ALPHA__"
 ENV_SEPARATOR: Final[str] = "__"
 
 _NON_CONFIG_ENV_KEYS: Final[frozenset[str]] = frozenset(
-    {"runs_dir", "data_dir", "log_level", "api_token", "alphavantage_api_key"}
+    {
+        "runs_dir",
+        "data_dir",
+        "jobs_db",
+        "web_dist",
+        "log_level",
+        "api_token",
+        "alphavantage_api_key",
+    }
 )
 """`ALPHA__*` variables that configure the *process*, not the experiment. They
 are deliberately excluded from the config tree so they cannot change
 `config_hash` — where the artifact store lives has no bearing on what a run
-computes."""
+computes.
+
+Anything the service reads in `alphaservice.api.settings` belongs here.
+`AlphaConfig` is `extra="forbid"`, so a process variable missing from this set
+does not fall through harmlessly: it becomes a config key, and every
+`alpha run` in that environment fails with `Extra inputs are not permitted`.
+`jobs_db` did exactly that until it was added."""
 
 
 def deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:

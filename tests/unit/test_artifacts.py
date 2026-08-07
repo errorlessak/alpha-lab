@@ -27,6 +27,23 @@ def test_create_run_refuses_to_reuse_a_run_id(store):
         store.create_run("run-a")
 
 
+@pytest.mark.parametrize("run_id", ["..", "../elsewhere", "nested/run", "", "."])
+def test_open_run_refuses_an_id_that_is_not_a_child_of_the_store(store, run_id):
+    # `artifact_path` already refuses to escape a *run* directory, which is
+    # worth nothing if the run directory itself can be the store's parent. The
+    # API reaches this through a percent-encoded path segment: `GET
+    # /api/v1/runs/%2E%2E/export/README.md` served the repository's own README
+    # until this check existed.
+    with pytest.raises(RunNotFoundError):
+        store.open_run(run_id)
+
+
+@pytest.mark.parametrize("run_id", ["..", "../elsewhere", "nested/run", "", "."])
+def test_create_run_refuses_an_id_that_is_not_a_child_of_the_store(store, run_id):
+    with pytest.raises(ArtifactExistsError, match="single directory name"):
+        store.create_run(run_id)
+
+
 def test_write_and_read_json_round_trip(store):
     run = store.create_run("run-a")
     run.write_json("tearsheet.json", {"sharpe": 0.71, "model": "lightgbm"})

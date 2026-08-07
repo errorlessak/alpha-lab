@@ -23,6 +23,7 @@ import alphaservice
 from alphaservice.api.problems import install_error_handlers
 from alphaservice.api.routers import datasets, jobs, runs, system
 from alphaservice.api.settings import API_PREFIX, Settings
+from alphaservice.api.static import mount_web_app
 from alphaservice.jobs.runner import JobRunner
 from alphaservice.jobs.store import JobStore
 
@@ -112,6 +113,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     install_error_handlers(app)
     for router in (system.router, datasets.router, runs.router, jobs.router):
         app.include_router(router, prefix=API_PREFIX)
+
+    # Last, and only when asked: the fallback matches every path, so anything
+    # registered after it would never be reached.
+    if resolved.web_dist is not None:
+        mount_web_app(app, resolved.web_dist)
     return app
 
 

@@ -185,6 +185,21 @@ def test_an_artifact_name_cannot_escape_the_run_directory(client, run_id):
     assert response.status_code in {400, 404}
 
 
+def test_a_run_id_cannot_escape_the_artifact_store(client, api_workspace):
+    # Percent-encoded, so the segment is still one path component when the
+    # router matches it and only becomes `..` afterwards. The un-encoded form
+    # is normalised away by the client and proves nothing.
+    #
+    # This served the repository's own README until `ArtifactStore.open_run`
+    # started checking that a run id names a direct child of the store.
+    root, _ = api_workspace
+    (root / "outside.md").write_text("# not an artifact\n", encoding="utf-8")
+
+    response = client.get("/api/v1/runs/%2E%2E/export/outside.md")
+    assert response.status_code == 404
+    assert "not an artifact" not in response.text
+
+
 def test_an_unexportable_suffix_is_refused(client, run_id):
     assert client.get(f"/api/v1/runs/{run_id}/export/logs.jsonl").status_code == 404
 

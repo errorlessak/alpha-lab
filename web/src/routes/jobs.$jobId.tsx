@@ -218,9 +218,9 @@ function Console({ lines, closed }: { lines: LogLine[]; closed: boolean }) {
                 style={{
                   color:
                     line.level === 'ERROR'
-                      ? 'var(--color-oxblood)'
+                      ? 'var(--color-danger-text)'
                       : line.level === 'WARNING'
-                        ? 'var(--color-sulphur)'
+                        ? 'var(--color-caution-text)'
                         : 'var(--color-ink)',
                 }}
               >

@@ -109,6 +109,23 @@ client:
     uv run alpha openapi -o docs/openapi.json
     npx --yes openapi-typescript@7 docs/openapi.json -o web/src/api/generated/schema.d.ts
 
+# Serve the API *and* the built web app from one origin, the way the container
+# does. Useful for checking the production bundle without Docker; `just serve`
+# plus the Vite dev server is the normal development loop.
+serve-bundled:
+    npm --prefix web run build
+    uv run alpha serve --web-dist web/dist
+
+# Build the container image (§15 Phase 14). The default image carries the `gbm`
+# extra and not `dl` — see the header of the Dockerfile.
+docker-build:
+    docker build -t alpha-lab:latest .
+
+# The whole application on http://127.0.0.1:8000, seeded with one run from the
+# committed fixture.
+docker-up:
+    docker compose up --build
+
 # Emit a requirements.txt for graders who want one (ADR 0006).
 export-requirements:
     uv export --no-hashes --format requirements-txt -o requirements.txt

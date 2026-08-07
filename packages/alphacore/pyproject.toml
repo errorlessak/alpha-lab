@@ -3,6 +3,12 @@ name = "alphacore"
 version = "0.1.0"
 description = "Pure research library: data, features, labels, CV, models, backtest, evaluation."
 requires-python = ">=3.12,<3.13"
+# The licence text lives at the repository root, one level above this
+# package's build root, so it is declared as an expression rather than a file:
+# hatchling silently ignores a `license-files` entry it cannot reach, and
+# metadata that quietly does nothing is worse than metadata that is absent.
+license = "MIT"
+authors = [{ name = "Akshy Karthick" }]
 dependencies = [
     "duckdb>=1.1",
     "exchange-calendars>=4.5",

@@ -9,41 +9,48 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   # Determinism (§4, I8). CPython reads this at startup, so it has to be in the
   # job environment rather than set from inside a step.
   PYTHONHASHSEED: "0"
+  UV_VERSION: "0.11.32"
 
 jobs:
-  verify:
+  # ------------------------------------------------------------------------
+  # The library and the service: everything `just fmt lint types test
+  # test-leak smoke` covers on the Python side.
+  # ------------------------------------------------------------------------
+  python:
+    name: python
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          # git_revision() records a short SHA in every run manifest.
+          # `git_revision()` records a short SHA in every run manifest.
           fetch-depth: 0
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v5
         with:
+          version: ${{ env.UV_VERSION }}
           enable-cache: true
 
-      - name: Install just
-        uses: extractions/setup-just@v2
-
-      - name: Pin Python
-        run: uv python install 3.12
-
       - name: Sync the locked environment
-        run: uv sync --all-packages --locked
+        # `--locked` fails rather than re-resolving: a lockfile that does not
+        # match the manifests is a change nobody reviewed. `gbm` and `tune` are
+        # explicit because without them the GBM, TreeSHAP and Optuna tests skip
+        # silently and the coverage gate quietly drops.
+        run: uv sync --all-packages --locked --extra gbm --extra tune
 
-      - name: Format check
+      - name: Format
         run: uv run ruff format --check .
 
       - name: Lint
         run: uv run ruff check .
 
-      - name: Import contracts
+      - name: Import contracts (§3)
         run: uv run lint-imports
 
       - name: Types
@@ -52,13 +59,219 @@ jobs:
       - name: Tests
         run: uv run pytest --cov=alphacore --cov-fail-under=85
 
-      - name: Leakage suite
+      - name: Leakage suite (§12.3)
         run: uv run pytest tests/leakage -x
 
-      - name: CLI is installed
-        run: uv run alpha --help
+      - name: End-to-end smoke run
+        run: uv run alpha run -c configs/experiments/smoke.yaml
 
-  # Wired up at the phases that make them meaningful (ADR 0009):
-  #   smoke  — Phase 10 (`just smoke`)
-  #   web    — Phase 12 (typecheck, build, Playwright)
-  #   docker — Phase 14 (`docker compose up` on the sample dataset)
+      - name: The run directory is complete (§16)
+        run: |
+          set -euo pipefail
+          run_dir="$(find runs -mindepth 1 -maxdepth 1 -type d | sort | tail -1)"
+          echo "checking $run_dir"
+          for artifact in tearsheet.json manifest.json research.md leaderboard.csv \
+                          config.resolved.yaml equity.parquet trades.parquet logs.jsonl; do
+            test -s "$run_dir/$artifact" || { echo "missing $artifact"; exit 1; }
+          done
+
+  # ------------------------------------------------------------------------
+  # Phase 13. Kept separate because torch is a multi-gigabyte install that
+  # nothing else needs, and because these tests are `importorskip`-gated — a
+  # job that runs them without the extra reports success having run nothing.
+  # ------------------------------------------------------------------------
+  sequence-models:
+    name: sequence models
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Sync with every extra
+        run: uv sync --all-packages --locked --all-extras
+
+      - name: Phase 13 tests
+        run: |
+          uv run pytest \
+            tests/unit/test_models_sequence.py \
+            tests/unit/test_windows.py \
+            tests/leakage/test_window_purge.py \
+            tests/integration/test_sequence_leaderboard.py \
+            --junitxml=sequence.xml
+
+      - name: Nothing skipped
+        # The point of this job is that torch is installed. A green run that
+        # skipped every test would say the opposite of what it appears to.
+        run: |
+          uv run python - <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          suite = ET.parse("sequence.xml").getroot().find("testsuite")
+          skipped, tests = int(suite.get("skipped", 0)), int(suite.get("tests", 0))
+          print(f"{tests} tests, {skipped} skipped")
+          if tests == 0 or skipped:
+              sys.exit("Phase 13 tests skipped — the `dl` extra is not installed.")
+          PY
+
+  # ------------------------------------------------------------------------
+  # The web app's own checks. No Python needed, so it starts immediately.
+  # ------------------------------------------------------------------------
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm --prefix web ci
+
+      - name: Lint
+        run: npm --prefix web run lint
+
+      - name: Format
+        run: npm --prefix web run format:check
+
+      - name: Types
+        run: npm --prefix web run typecheck
+
+      - name: Unit tests
+        run: npm --prefix web run test
+
+      - name: Build
+        run: npm --prefix web run build
+
+      - name: Bundle budget (§13.5)
+        run: npm --prefix web run budget
+
+  # ------------------------------------------------------------------------
+  # The golden path, against the built bundle and a real API. Needs both
+  # toolchains and a populated artifact store, which is why it is not folded
+  # into the `web` job.
+  # ------------------------------------------------------------------------
+  e2e:
+    name: end-to-end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: uv sync --all-packages --locked
+      - run: npm --prefix web ci
+
+      - name: Playwright browser
+        run: npm --prefix web exec playwright install --with-deps chromium
+
+      - name: A run for the index to show
+        # `playwright.config.ts` starts the API itself, but it cannot invent a
+        # run, and every assertion on the index needs one.
+        run: uv run alpha run -c configs/experiments/smoke.yaml
+
+      - name: Build
+        run: npm --prefix web run build
+
+      - name: Golden path (§13.5)
+        run: npm --prefix web run e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7
+
+  # ------------------------------------------------------------------------
+  # Generated files are committed so a reader can see them without running
+  # anything. That only works if they are current.
+  # ------------------------------------------------------------------------
+  generated-files:
+    name: generated files are current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - run: uv sync --all-packages --locked
+
+      - name: Feature data dictionary (§7.1)
+        run: uv run python -m alphacore.features --emit-docs --output docs/data-dictionary.md
+
+      - name: OpenAPI document and TypeScript client (§14.1)
+        run: |
+          uv run alpha openapi -o docs/openapi.json
+          npx --yes openapi-typescript@7 docs/openapi.json -o web/src/api/generated/schema.d.ts
+
+      - name: No drift
+        run: |
+          if ! git diff --quiet; then
+            echo "Generated files are stale. Run \`just docs\` and \`just client\`, then commit:"
+            git --no-pager diff --stat
+            exit 1
+          fi
+
+  # ------------------------------------------------------------------------
+  # §15 Phase 14's exit criterion: `docker compose up` serves the app with the
+  # sample dataset on a clean machine.
+  # ------------------------------------------------------------------------
+  docker:
+    name: docker compose up
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and start
+        run: docker compose up --build --detach --wait --wait-timeout 600
+
+      - name: The API is up and reading its store
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:8000/api/v1/health | tee /dev/stderr | grep -q '"status":"ok"'
+
+      - name: The seeded run is there
+        run: |
+          set -euo pipefail
+          total="$(curl -fsS http://127.0.0.1:8000/api/v1/runs | python -c 'import json,sys; print(json.load(sys.stdin)["total"])')"
+          echo "runs in the store: $total"
+          test "$total" -ge 1
+
+      - name: The web app is served from the same origin
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:8000/ | grep -q '<div id="root">'
+          # A deep link has to resolve to the shell, or every refresh 404s.
+          curl -fsS http://127.0.0.1:8000/runs/does-not-exist | grep -q '<div id="root">'
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop
+        if: always()
+        run: docker compose down --volumes

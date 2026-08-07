@@ -18,6 +18,7 @@ from fastapi import HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from alphacore.errors import (
     AlphaError,
@@ -207,8 +208,13 @@ def install_error_handlers(app: FastAPI) -> None:
             extra={"errors": _serialisable(exc.errors())},
         )
 
-    @app.exception_handler(HTTPException)
-    async def _http(request: Request, exc: HTTPException) -> JSONResponse:
+    # Registered against Starlette's exception rather than FastAPI's subclass:
+    # the router raises the base class for an unmatched path and an
+    # unsupported method, so a handler bound to `fastapi.HTTPException` leaves
+    # exactly those two as `{"detail": "Not Found"}` — the one shape this
+    # service promises never to return.
+    @app.exception_handler(StarletteHTTPException)
+    async def _http(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         return problem_response(
             status_code=exc.status_code,
             problem_type="http-error",

@@ -44,6 +44,22 @@ def test_an_unknown_run_is_a_problem_document_not_a_bare_404(client):
     assert "does-not-exist" in problem["detail"]
 
 
+def test_an_unmatched_path_is_a_problem_document(client):
+    # Starlette's router raises its own HTTPException for an unmatched path, so
+    # a handler registered only against FastAPI's subclass leaves this as
+    # `{"detail": "Not Found"}` — the one response shape §14.1 rules out.
+    response = client.get("/api/v1/no-such-route")
+    assert response.status_code == 404
+    assert response.headers["content-type"].startswith(PROBLEM_JSON)
+    assert response.json()["status"] == 404
+
+
+def test_an_unsupported_method_is_a_problem_document(client):
+    response = client.delete("/api/v1/health")
+    assert response.status_code == 405
+    assert response.headers["content-type"].startswith(PROBLEM_JSON)
+
+
 def test_a_validation_error_is_also_a_problem_document(client):
     response = client.get("/api/v1/runs", params={"limit": -5})
     assert response.status_code == 422

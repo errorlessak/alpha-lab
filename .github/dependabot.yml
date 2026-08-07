@@ -1,0 +1,36 @@
+# Dependency updates, grouped so a week's worth of patch bumps is one pull
+# request rather than fifteen. Every one still has to pass the whole gate,
+# which for this project includes the leakage suite and a byte-identical
+# tearsheet — a numerics library that changes a result will say so loudly.
+version: 2
+updates:
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      python:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: monthly
+    groups:
+      web:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly

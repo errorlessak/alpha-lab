@@ -13,6 +13,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 
+import { TableScroll } from '../components/TableScroll'
 import { EmptyState, ErrorState, Skeleton } from '../components/states'
 import { api } from '../lib/api'
 import type { RunSummaryRow } from '../lib/api'
@@ -98,75 +99,77 @@ function RunIndex() {
 
 function RunTable({ rows }: { rows: RunSummaryRow[] }) {
   return (
-    <table className="w-full border-collapse text-xs">
-      <caption className="sr-only">
-        Completed and failed runs, newest first, with their headline metrics
-      </caption>
-      <thead>
-        <tr className="border-b border-[color:var(--color-ink)] text-left">
-          <Th>run</Th>
-          <Th>created</Th>
-          <Th>config</Th>
-          <Th>symbol</Th>
-          <Th>span</Th>
-          <Th>model</Th>
-          <Th numeric>net SR</Th>
-          <Th numeric>DSR</Th>
-          <Th numeric>PBO</Th>
-          <Th>flags</Th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr
-            key={row.run_id}
-            className="border-b border-[color:var(--color-rule)] align-top even:bg-[color:var(--color-paper-sunk)]"
-          >
-            <td className="tabular py-2 pr-3">
-              <Link
-                to="/runs/$runId"
-                params={{ runId: row.run_id }}
-                className="text-[color:var(--color-link)] underline underline-offset-2"
-              >
-                {shortId(row.run_id)}
-              </Link>
-              {row.status !== 'completed' ? (
-                <span className="ml-2 text-2xs text-[color:var(--color-oxblood)]">
-                  {row.status}
-                </span>
-              ) : null}
-            </td>
-            <td className="tabular py-2 pr-3 text-[color:var(--color-ink-muted)]">
-              {fmtDateTime(row.created_at)}
-            </td>
-            <td className="py-2 pr-3">{row.name}</td>
-            <td className="py-2 pr-3">{(row.symbols ?? []).join(', ') || '—'}</td>
-            <td className="tabular py-2 pr-3 text-[color:var(--color-ink-muted)]">
-              {row.span?.length === 2 ? `${fmtDate(row.span[0])} → ${fmtDate(row.span[1])}` : '—'}
-            </td>
-            <td className="py-2 pr-3">{row.selected_model ?? '—'}</td>
-            <Td>{fmtNum(row.oos_net_sharpe, 3)}</Td>
-            <Td>{fmtNum(row.dsr, 2)}</Td>
-            <Td>{fmtNum(row.pbo, 2)}</Td>
-            <td className="py-2">
-              {row.has_tearsheet ? (
-                (row.warnings?.length ?? 0) > 0 ? (
-                  <span className="tabular text-2xs text-[color:var(--color-sulphur)]">
-                    ⚑ {(row.warnings ?? []).join(' · ')}
-                  </span>
-                ) : (
-                  <span className="text-2xs text-[color:var(--color-ink-muted)]">clean</span>
-                )
-              ) : (
-                <span className="text-2xs text-[color:var(--color-oxblood)]">
-                  no result — see the job log
-                </span>
-              )}
-            </td>
+    <TableScroll label="Runs">
+      <table className="w-full min-w-[52rem] border-collapse text-xs">
+        <caption className="sr-only">
+          Completed and failed runs, newest first, with their headline metrics
+        </caption>
+        <thead>
+          <tr className="border-b border-[color:var(--color-ink)] text-left">
+            <Th>run</Th>
+            <Th>created</Th>
+            <Th>config</Th>
+            <Th>symbol</Th>
+            <Th>span</Th>
+            <Th>model</Th>
+            <Th numeric>net SR</Th>
+            <Th numeric>DSR</Th>
+            <Th numeric>PBO</Th>
+            <Th>flags</Th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr
+              key={row.run_id}
+              className="border-b border-[color:var(--color-rule)] align-top even:bg-[color:var(--color-paper-sunk)]"
+            >
+              <td className="tabular py-2 pr-3">
+                <Link
+                  to="/runs/$runId"
+                  params={{ runId: row.run_id }}
+                  className="text-[color:var(--color-link)] underline underline-offset-2"
+                >
+                  {shortId(row.run_id)}
+                </Link>
+                {row.status !== 'completed' ? (
+                  <span className="ml-2 text-2xs text-[color:var(--color-danger-text)]">
+                    {row.status}
+                  </span>
+                ) : null}
+              </td>
+              <td className="tabular py-2 pr-3 text-[color:var(--color-ink-muted)]">
+                {fmtDateTime(row.created_at)}
+              </td>
+              <td className="py-2 pr-3">{row.name}</td>
+              <td className="py-2 pr-3">{(row.symbols ?? []).join(', ') || '—'}</td>
+              <td className="tabular py-2 pr-3 text-[color:var(--color-ink-muted)]">
+                {row.span?.length === 2 ? `${fmtDate(row.span[0])} → ${fmtDate(row.span[1])}` : '—'}
+              </td>
+              <td className="py-2 pr-3">{row.selected_model ?? '—'}</td>
+              <Td>{fmtNum(row.oos_net_sharpe, 3)}</Td>
+              <Td>{fmtNum(row.dsr, 2)}</Td>
+              <Td>{fmtNum(row.pbo, 2)}</Td>
+              <td className="py-2">
+                {row.has_tearsheet ? (
+                  (row.warnings?.length ?? 0) > 0 ? (
+                    <span className="tabular text-2xs text-[color:var(--color-caution-text)]">
+                      ⚑ {(row.warnings ?? []).join(' · ')}
+                    </span>
+                  ) : (
+                    <span className="text-2xs text-[color:var(--color-ink-muted)]">clean</span>
+                  )
+                ) : (
+                  <span className="text-2xs text-[color:var(--color-danger-text)]">
+                    no result — see the job log
+                  </span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </TableScroll>
   )
 }
 

@@ -158,7 +158,7 @@ Other CLI: `alpha version`, `alpha dev scratch-run`, `alpha data inspect
 
 ## 5. State of the build
 
-**Phases 0–13 complete. Phase 14 is next.**
+**Phases 0–14 complete.**
 
 | Phase | Status |
 |---|---|
@@ -176,12 +176,22 @@ Other CLI: `alpha version`, `alpha dev scratch-run`, `alpha data inspect
 | 11 API service | ✅ |
 | 12 Web app | ✅ |
 | 13 Sequence models (optional) | ✅ |
-| **14 Packaging and docs** | **⬜ next** |
+| 14 Packaging and docs | ✅ |
 
-Last `just verify`: **1083 Python tests passed, 34 web tests passed, 75 leakage
-tests passed**, coverage 89.44%, mypy strict clean on 104 source files, `tsc`
-clean, the smoke run completing the golden path, 10 Playwright tests green, and
-99 KB of initial JS against a 200 KB budget. Lighthouse 96 / 100 / 100.
+Phase 14 was picked up after being deliberately skipped. What it added, and
+what it found on the way, is in `PROGRESS.md`; the short version is that the
+hardening pass it replaced had left three defects behind that a packaging pass
+was always going to trip over.
+
+Last `just verify`, green end to end: **1109 Python tests passed, 40 web tests
+passed, 75 leakage tests passed, 13 Playwright tests passed**, coverage 89.43%,
+mypy strict clean on 105 source files, `tsc` clean, both import contracts kept,
+the smoke run completing the golden path, and 99.0 KB of initial JS against the
+200 KB budget.
+
+Lighthouse is **95 / 100 / 100** (median of three) on a store holding one run,
+measured after the palette's contrast fix — not the 96 an earlier session
+recorded, and it falls on a store holding dozens of runs. See §8.
 
 Commits, newest first:
 
@@ -269,6 +279,25 @@ Break these and the project stops meaning anything.
   a perfect-foresight inverse canary; the splitter ban has positive samples;
   the scaler spy has a deliberately global fit; the window-purge test has the
   obvious positional windower, which straddles the gap and fails it.
+- **A variable the service reads is a *process* variable.** It must be in
+  `_NON_CONFIG_ENV_KEYS` in `config/loader.py`. `AlphaConfig` is
+  `extra="forbid"`, so a process variable missing from that set does not fall
+  through harmlessly — it becomes a config key and every `alpha run` in that
+  shell fails. `ALPHA__JOBS_DB` did exactly that.
+  `tests/unit/test_config.py` now derives the list from
+  `alphaservice.api.settings` so the two packages cannot drift.
+- **A run id names a direct child of the store, and `ArtifactStore` checks it.**
+  `RunDirectory.artifact_path` refusing to escape a run directory is worth
+  nothing if the run directory can be the store's parent —
+  `GET /api/v1/runs/%2E%2E/export/README.md` served the repository's own README
+  until `open_run` started checking.
+- **Structural colour and text colour are different tokens.** `--color-sulphur`
+  is 2.31:1 as light-mode text and `--color-oxblood` is 3.92:1 on the striped
+  row fill in dark mode; both are fine as fills against the 3:1 bar.
+  `--color-caution-text` and `--color-danger-text` exist for the text case,
+  following the precedent `--color-link` already set. The end-to-end suite
+  computes the contrast of every text node in both schemes, so reaching for the
+  structural name turns the build red.
 
 ### The phase gate
 
@@ -348,8 +377,27 @@ All are recorded in `PROGRESS.md` with reasoning. The short list:
 
 ---
 
-## 8. Known gaps entering Phase 14
+## 8. Known gaps — the state the project is being left in
 
+Phase 14 is built: `Dockerfile`, `docker-compose.yml`, `.dockerignore`,
+`docker/entrypoint.sh`, a six-job CI workflow, `docs/methodology.md`,
+`docs/diagrams.md` (Mermaid in Markdown, rendered by GitHub — there is no SVG
+export step to go stale), and the repository furniture. `just serve-bundled`
+runs the single-origin arrangement the container uses, without Docker.
+
+**The image has never been built.** Docker is not installed on the development
+machine. The compose file parses, the entrypoint's seeding logic was exercised
+under `sh`, and the `docker` CI job asserts the §15 exit criterion — but until
+that job runs, the Dockerfile is unverified. Treat the first CI run as the test.
+
+- **Lighthouse performance depends on how many runs are in the store.** 95 with
+  one run, low 70s with twenty: the index grows after its fetch lands, and the
+  layout shift is charged against the table's scroll container. The container
+  is not the cause — it is what stops the *page* scrolling sideways below
+  1000px — but it is what the metric blames. Reserving the skeleton's height
+  does not help and a larger reservation makes it worse; both were measured.
+  Fixing it properly means not growing the page after the fetch, which means
+  pagination or a fixed-height virtualised list.
 - **Jobs do not survive an API restart.** Nothing resumes them; the run
   directory will not claim to be `completed`. ADR 0008 names the design.
 - **No authentication anywhere.** `alpha serve` binds loopback and warns if told
@@ -380,33 +428,44 @@ All are recorded in `PROGRESS.md` with reasoning. The short list:
 
 ---
 
-## 9. Phase 14 — what to do next
+## 9. Phase 14 — what was built, and what it is holding
 
-From §15:
+**The image carries `gbm` and not `dl`.** `--build-arg EXTRAS="--extra gbm
+--extra dl"` adds torch and about 2 GB, for a model family no packaged config
+uses.
 
-> Deliverables: multi-stage Dockerfile + compose, GitHub Actions CI (lint, type,
-> test, coverage gate 85% on `alphacore`, web typecheck + build + Playwright,
-> docker build), README with screenshots and a 5-minute quickstart,
-> `docs/methodology.md`, mermaid architecture diagrams rendered to SVG, three
-> example experiment configs, the generated research report for one real run.
->
-> **Exit:** `docker compose up` serves the app with the sample dataset on a
-> clean machine; CI green; a stranger can go from `git clone` to a rendered
-> tearsheet in under 10 minutes following only the README.
+**CI installs the extras deliberately.** Without them the GBM, TreeSHAP, Optuna
+and sequence tests skip silently and the coverage gate drops. The
+`sequence-models` job parses its own junit XML and fails if the skip count is
+anything but zero — a green run that skipped everything says the opposite of
+what it appears to.
 
-Things Phase 13 leaves that bear on it:
+**`ALPHA__WEB_DIST` is how the container serves the app.** The client requests
+`/api/v1/…` with no host, so the bundle and the API have to share an origin.
+`alphaservice/api/static.py` mounts it, the routes are `include_in_schema=False`
+so the committed OpenAPI document is unaffected, and the whole thing is inert
+unless the variable is set. `just serve-bundled` does the same locally.
 
-- **The image should not carry torch.** The `dl` extra is ~2 GB installed for a
-  model family the sample config does not use. Build the default image from
-  `uv sync --all-packages --extra gbm`, and if a deep-learning image is wanted,
-  make it a second stage rather than the default.
-- **CI must install the extras deliberately**, or the sequence and tuning tests
-  silently skip and the coverage gate drops. Whatever the workflow runs, assert
-  the skip count is zero on the job that claims to cover Phase 13.
-- **Three example configs** are the deliverable, and `smoke.yaml`,
-  `spy_daily_tb.yaml` and `btc_1h_meta.yaml` already exist. A fourth naming a
-  sequence candidate would be the natural place to show `lstm` on a leaderboard
-  outside the test suite.
+**The entrypoint seeds one run when the store is empty.** That is what makes
+`docker compose up` satisfy the §15 exit criterion rather than serving an empty
+index whose call to action is a `uv run` command that does not exist inside the
+container. `ALPHA_SEED_SMOKE=0` turns it off.
+
+**`docs/diagrams.md` is Mermaid in Markdown, not exported SVG.** §15 asked for
+SVG; GitHub renders Mermaid natively, and a diagram that has to be re-exported
+to stay true is a diagram that stops being true. Recorded here rather than as an
+ADR because it changes nothing about the system.
+
+Still true, and still worth knowing:
+
+- **Four example configs exist** — `smoke.yaml`, `synth_sequence.yaml`,
+  `spy_daily_tb.yaml` and `btc_1h_meta.yaml`. Three of them run; the fourth
+  names the unimplemented `binance` provider on purpose and says so in its own
+  header.
+- **`spy_daily_tb.yaml` takes about an hour with tuning on**, because every one
+  of the 60 trials per model runs the full inner walk-forward and a costed
+  backtest. Measured on this machine: a logistic study is ~5 minutes, a LightGBM
+  study ~15. Any CI job that runs it needs `models.tuning.enabled: false`.
 - **The e2e web server path was wrong** and hid behind `reuseExistingServer`
   until a stale server was killed (fixed in `web/playwright.config.ts`). CI has
   no stale server, so any similar path assumption fails there first.

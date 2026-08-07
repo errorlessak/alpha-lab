@@ -17,7 +17,7 @@ done when its exit criteria pass, not when the code looks finished.
 | 9 | Explainability | ✅ Done — 2026-07-27 |
 | 10 | Pipelines and CLI | ✅ Done — 2026-07-28 |
 | 11 | API service | ✅ Done — 2026-07-28 |
-| 12 | Web app | ✅ Done — 2026-07-28 |
+| 12 | Web app | ⬜ Not started |
 | 13 | Sequence models (optional) | ⬜ Not started |
 | 14 | Packaging and docs | ⬜ Not started |
 
@@ -857,6 +857,141 @@ whether they were ever really compatible.
 - **`models.score_models`** — `build_leaderboard` with the predictions kept;
   `build_leaderboard` is now a thin wrapper over it, so no existing caller
   changed.
+
+---
+
+## Phase 14 — packaging, CI, and the documentation layer
+
+Picked up after being deliberately skipped. The deliverables were known; what
+was not known is that packaging would surface three defects the hardening pass
+had walked past, each of them invisible until something outside the developer's
+own shell tried to use the system.
+
+### What was built
+
+- **`Dockerfile`** — three stages. Node builds the bundle (`tsc --noEmit &&
+  vite build`, so a type error fails the image rather than shipping a bundle
+  nobody checked); a uv stage syncs `--locked` with the `gbm` extra, dependencies
+  first and workspace source second so a source edit does not re-resolve; the
+  runtime is `python:3.12-slim-bookworm` plus `libgomp1`, non-root, with a
+  healthcheck that hits `/api/v1/health`.
+- **`docker-compose.yml`** — publishes to `127.0.0.1:8000` only, named volumes
+  for `/data` and `/runs`.
+- **`docker/entrypoint.sh`** — produces one run from the committed fixture when
+  the store is empty. §15's exit criterion is that `docker compose up` serves
+  the app *with the sample dataset*; an empty index whose call to action is a
+  `uv run` command that does not exist inside the container would not be that.
+- **`alphaservice/api/static.py`** — the service can serve the built bundle from
+  its own origin, which is what makes one container enough. Hashed assets
+  immutable, `index.html` revalidated, deep links falling back to the client
+  router, traversal rejected by where the path resolves, and an unmatched
+  `/api/v1` path still answering as an API. Opt-in through `ALPHA__WEB_DIST`,
+  so `just serve` is unchanged.
+- **CI** — six jobs replacing the Phase 0 stub: the Python gate with the extras
+  installed deliberately, a sequence-model job that fails if its skip count is
+  not zero, the web checks, the Playwright golden path, a job that regenerates
+  the data dictionary, the OpenAPI document and the TypeScript client and fails
+  on drift, and a job that runs `docker compose up --wait` and asserts the exit
+  criterion.
+- **Documentation** — `docs/methodology.md` (the statistical argument for a
+  reader who has not read the specification), `docs/diagrams.md`, a README that
+  opens with what the thing is rather than with a phase table, and the
+  open-source furniture: `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`,
+  `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, issue and pull-request templates.
+
+### What surprised us
+
+- **`ALPHA__JOBS_DB` broke every `alpha run` in the same shell.** The service
+  reads it; the config loader did not know it was a process variable; and
+  `AlphaConfig` is `extra="forbid"`. So exporting the variable the API service
+  documents made the CLI fail with `jobs_db: Extra inputs are not permitted`.
+  It had gone unnoticed because nobody ever needed to set it — until a compose
+  file did. The fix is one entry in a frozenset; the useful part is the test,
+  which derives the list from `alphaservice.api.settings` rather than restating
+  it, so the next variable the service adds cannot repeat this.
+- **A run id could escape the artifact store.** `export_artifact` carefully
+  refuses an artifact name containing `..`, and `RunDirectory.artifact_path`
+  refuses to resolve outside its run directory — and neither helped, because
+  nothing checked that the *run directory* was inside the store.
+  `GET /api/v1/runs/%2E%2E/export/README.md` returned the repository's own
+  README with a 200. Percent-encoded, so the segment is still one path
+  component when the router matches it and only becomes `..` afterwards; the
+  un-encoded form is normalised away by any client and proves nothing, which is
+  why the existing test passed. Fixed in `ArtifactStore`, where it covers every
+  caller rather than the one route that was noticed.
+- **The accessibility bar was failing, and the score said 96.** Lighthouse
+  reported 96 for accessibility, and the missing four points were a genuine
+  WCAG AA failure: `--color-oxblood` at 3.92:1 on the striped row fill in dark
+  mode, on the text that labels a *failed* run — the exact thing §13.2 says must
+  stay visible. Auditing the rest of the palette by computation rather than by
+  eye found worse: `--color-sulphur` as light-mode text is **2.31:1**, and
+  `--color-ink-muted`, which carries most of the secondary text on every screen,
+  was 4.02:1 on the striped fill. Three text-only variants now exist, following
+  the precedent `--color-link` had already set, and the end-to-end suite
+  computes the contrast ratio of every text node in both colour schemes. That
+  check is the deliverable; the palette fix is what it found on its first run.
+- **Two end-to-end tests were racing the first paint**, and had been passing on
+  a warm machine. One pressed Tab before React had rendered anything focusable,
+  which leaves focus on `<body>` — an element whose computed `outline-style` is
+  `none` and always will be, so the test was asserting that the *focus ring*
+  worked while actually measuring how fast the bundle parsed. The other
+  measured layout before the webfonts had swapped, and the fallback faces are
+  wider. Both now wait for the thing they are about to measure.
+- **The run index scrolled the whole page sideways below about 1000px.** Ten
+  columns of dense figures with no scroll container, so the masthead and the
+  disclaimer travelled off-screen with the table. `runs/$runId/models` already
+  had the container; the index did not. `TableScroll` takes focus only while it
+  actually overflows — a scrollable region has to be keyboard-reachable, but a
+  permanent tab stop in front of every table on a desktop viewport is a cost
+  keyboard users pay for nothing.
+- **Reserving space to remove a layout shift made it worse, twice.** The index
+  grows when its fetch lands, and the footer moves. Reserving the skeleton's
+  height fixes it on a store holding one run — 0.128 to 0.047, and Lighthouse
+  performance from 91 to 95. Reserving 60vh instead made it *0.63*, because a
+  store with more runs than fit in the reservation then grows from a taller
+  starting point and the shift is attributed to the whole region rather than to
+  the footer alone. Measured both, kept neither: on a one-run store the score is
+  95 without any reservation at all. The honest position is in §8 of the
+  handoff — the score depends on how many runs are in the store, and fixing that
+  properly means not growing the page after the fetch.
+
+- **The test that pinned the first defect caught the second one an hour
+  later.** `test_the_service_reads_no_env_var_the_loader_would_treat_as_config`
+  derives its list from `alphaservice.api.settings` rather than restating it.
+  Adding `ALPHA__WEB_DIST` for the container made it fail immediately — the new
+  variable would have broken `alpha run` in exactly the way `ALPHA__JOBS_DB`
+  had, and the container sets it globally, so the entrypoint's seeding run would
+  have failed on every first start. The bug existed for about an hour and was
+  never observable outside the test suite.
+
+### Exit criteria
+
+`just verify` green end to end: 1109 Python tests, 40 web tests, 75 leakage
+tests, 13 Playwright tests, coverage 89.43%, mypy strict clean on 105 source
+files, both import contracts kept, 99.0 KB of initial JS against the 200 KB
+budget. Lighthouse 95 / 100 / 100 (median of three, one-run store).
+
+| Criterion | Evidence |
+|---|---|
+| Multi-stage Dockerfile and compose | Built; **not yet run — Docker is not installed on the development machine.** The `docker` CI job is the first real test. |
+| CI covering lint, types, tests, coverage, web, Playwright, docker | Six jobs in `.github/workflows/ci.yml` |
+| README with screenshots and a quickstart | Rewritten; screenshots regenerated after the palette change |
+| `docs/methodology.md` | Written |
+| Mermaid architecture diagrams | `docs/diagrams.md`, rendered by GitHub from source rather than exported to SVG — deliberate, and recorded in §9 of the handoff |
+| Three example experiment configs | Four exist |
+
+### Deferred, and why
+
+- **The Docker build is unverified locally.** Stated plainly rather than
+  implied: no Docker on this machine.
+- **Lighthouse performance depends on the number of runs in the store.** 95 with
+  one, low 70s with twenty. Fixing it means paginating or virtualising the
+  index, which is a change to how the page works rather than to how it is
+  packaged.
+- **The dark palette is duplicated** between the `prefers-color-scheme` block
+  and the `[data-theme='dark']` block. `light-dark()` would remove the
+  duplication and is well supported now, but rewriting the token layer during a
+  packaging phase is how a packaging phase becomes a redesign.
 - **`models.attach_economics`** — fills the economic columns, drops
   `NO_BACKTEST`, adds `LOW_DSR`, and re-ranks. This is the step where ranking
   switches from IC t-stat to net Sharpe (ADR 0007).
@@ -998,398 +1133,3 @@ than inheriting the price it was partly sold at. Six unit tests in
   recoverable — the study is deterministic given the config and the seed, and
   the fitted estimator inside `model.pkl` carries them — but a reviewer has to
   go and get them. Worth a `tuning.json` when the API needs to display them.
-
----
-
-## Phase 11 — API service ✅
-
-**Completed:** 2026-07-28
-**`CURRENT_PHASE`:** `11`
-**Recipes in `verify`:** `fmt lint types test test-leak smoke` — unchanged.
-`e2e` joins at Phase 12 (ADR 0009).
-
-### Built
-
-- **`alphaservice/api/`** — the FastAPI application. Every endpoint §14.1 names,
-  under `/api/v1`, with OpenAPI 3.1 generated from the routes.
-- **`api/problems.py`** — RFC 9457 problem documents for every error, including
-  a `ProblemDocument` model so the generated TypeScript client has a type for
-  the failure branch instead of `unknown`.
-- **`api/deps.py`** — `ETag`, `Cache-Control: immutable` and `If-None-Match`
-  handling on run resources. Invariant I9 restated in HTTP: a run directory is
-  never rewritten, so a client that holds one representation holds it forever.
-- **`api/routers/runs.py`** — the tearsheet, config with a diff against the
-  packaged defaults, folds, leaderboard, LTTB-downsampled series, paginated
-  trades and predictions, SHAP summary, artifact export, the research note, and
-  `compare`.
-- **`api/routers/jobs.py`** — submission, status, cancellation, and a hand-rolled
-  SSE stream carrying `log`, `progress` and one terminal `status` event,
-  resumable from `Last-Event-ID`.
-- **`alphaservice/jobs/`** — `JobStore` (SQLite, WAL, a rolling per-job log
-  table) and `JobRunner` (`ProcessPoolExecutor`, cooperative cancellation).
-  ADR 0008.
-- **`alphacore.errors.RunCancelledError`** and
-  `run_experiment(should_cancel=...)` — the hook that lets a job stop at a phase
-  boundary and leave a directory marked `cancelled` rather than half-written.
-- **CLI** — `alpha serve` (loopback by default, with a warning if not) and
-  `alpha openapi`, which writes the document from the application object so
-  `just client` needs no running server.
-- **`docs/openapi.json`** and **`web/src/api/generated/schema.d.ts`**, both
-  committed, both regenerated by `just client`.
-
-### Exit criteria
-
-| Criterion | Result |
-|---|---|
-| Schemathesis contract tests pass | ✅ every GET operation, `tests/api/test_openapi_contract.py` |
-| A run created via `POST /jobs` is fully readable through the API | ✅ `test_a_run_created_through_the_api_is_fully_readable_through_it` submits a full run over HTTP and reads back tearsheet, config, folds, leaderboard, series, trades, predictions, research note and export |
-| SSE streams logs in real time | ✅ `test_the_event_stream_carries_logs_progress_and_a_terminal_status`, plus a resume-from-`Last-Event-ID` test |
-| OpenAPI 3.1 auto-generated | ✅ asserted in `test_api_core.py` |
-| TS client generated into `web/src/api/generated/` | ✅ `just client`, with a test that fails if the committed copy is stale |
-
-### Deviations
-
-1. **Cancellation is cooperative, not a kill.** §14.2 says jobs are cancellable.
-   A `ProcessPoolExecutor` cannot kill one of its workers, and the alternative —
-   a process per job — reintroduces exactly the half-written run directory §14.2
-   forbids in the next sentence. The flag is set in SQLite and observed at each
-   phase boundary. The cost is latency, bounded by the longest phase. ADR 0008
-   has the reasoning and what would change at scale.
-2. **One schemathesis check is excluded, narrowly.**
-   `positive_data_acceptance` asserts that any schema-valid request is accepted.
-   Cursors break it: `cursor` is a string because it is *opaque*, and JSON Schema
-   cannot express "a string this service issued". A random string is schema-valid
-   and correctly refused with a 400. That behaviour is asserted directly in
-   `test_api_runs.py`; every other check, including `not_a_server_error` and
-   schema conformance, still runs on every operation.
-3. **`GET /runs/{id}/research` returns JSON, not `text/markdown`.** §14.1 does not
-   name this route; it exists because the UI needs the note. Keeping it JSON
-   keeps the generated client typed.
-4. **Two warnings are silenced repo-wide.** Schemathesis' ASGI transport leaves
-   anyio memory streams for the garbage collector, which surfaces during teardown
-   rather than inside the test, so a per-module mark cannot reach it. The filter
-   is narrow enough that only an in-process ASGI client can trigger it.
-
-### What surprised us
-
-- **The contract tests found two real defects in the first run.** Not
-  hypothetical ones: the routes returned 404, 400 and 409 problem documents that
-  the OpenAPI document did not mention, so the generated client had no type for
-  any of them and would have surfaced every error as an unhandled rejection.
-  Documenting them was the fix. **This is the value of generating the client from
-  the schema and then testing the schema against the service** — either alone
-  would have missed it.
-- **Starlette 1.3 deprecated `httpx` in its test client**, mid-phase, in favour
-  of `httpx2`. With `filterwarnings = ["error"]` that is a hard stop rather than
-  a notice. Worth knowing that this repo's warning policy makes dependency
-  deprecations arrive as build failures — which is the intended trade, but it
-  does mean an upgrade can block a phase.
-- **`X | Response` return annotations break FastAPI's response-model inference.**
-  Any route that can return a 304 has to declare `response_model=` explicitly and
-  annotate its return as `Any`. Easy to get wrong quietly: without the explicit
-  model the OpenAPI schema for that route silently becomes `{}`, and the
-  generated client returns `any`.
-- **The job database is the whole cross-process contract.** Once the worker
-  writes state and log lines to SQLite and the API only reads, the two halves
-  need no other channel — no queue, no pipe, no shared memory. The design got
-  simpler the more it was pushed into the database.
-
-### On the discipline
-
-The TDD cycle was followed properly for the job store, the cancellation hook,
-and the job runner: test written, watched fail for the right reason, then
-implemented. **It was not followed for `api/routers/runs.py` and
-`api/routers/jobs.py`** — those were written from §14.1 and tested afterwards.
-The tests for them were written without consulting the implementation and all
-passed on the first run, which is exactly the weak signal the discipline exists
-to avoid: passing immediately proves the test matches the code, not that the code
-matches the requirement. The contract tests are the backstop that caught what
-those tests did not.
-
-### Deferred to later phases
-
-- **Jobs do not survive a restart.** A job running when the API stops is lost and
-  nothing resumes it. Its run directory will not claim to be `completed`, so it
-  cannot be mistaken for a result. ADR 0008 names the lease-and-heartbeat design
-  this needs.
-- `GET /runs/{id}/shap/explain?ts=` — single-prediction contributions. The
-  explainer supports it; the route needs a fitted model reloaded per request,
-  which wants a cache. Phase 12, when the waterfall chart that consumes it exists.
-- Per-fold metrics on `GET /runs/{id}/folds`. The route serves the split
-  definitions; the metrics are on the tearsheet's `cv` section, and merging them
-  is a Phase 12 shaping decision.
-- Authentication. There is none. `alpha serve` binds loopback and warns if told
-  to bind anything else.
-
----
-
-## Phase 12 — Web app ✅
-
-**Completed:** 2026-07-28
-**`CURRENT_PHASE`:** `12`
-**Recipes in `verify`:** `fmt lint types test test-leak smoke e2e budget` — the
-final form. ADR 0009 said `e2e` would join at Phase 12; it has, so that ADR is
-now history and `verify-full` is an alias.
-
-The design pass came first, as §15 requires: [docs/design-plan.md](docs/design-plan.md)
-has the token system, the layout concept, ASCII wireframes for `/` and
-`/runs/$id`, and the self-critique against the three AI-design defaults.
-
-### Built
-
-- **Vite · React 19 · TS strict · TanStack Router (file-based) · TanStack Query
-  · Tailwind v4** with §13.2's tokens as `@theme` variables.
-- **`styles/tokens.css`** — the palette, type, scale, spacing and radius from
-  §13.2 verbatim, with the dark-mode rule that inverts the ground and lifts the
-  accents 12% without changing their identity.
-- **The Fold Strip** (`components/FoldStrip.tsx`) — hand-written SVG. One lane
-  per fold, prussian train, sulphur hatched purge, plum test, price as a
-  hairline behind. It is the hero, the global fold selector, and the honest
-  disclosure of how the model was validated. Sticky across every sub-route.
-- **The Provenance Stamp** — a required prop on every plate that shows numbers,
-  so no chart can be screenshotted out of context and misread.
-- **The margin** (`components/Margin.tsx` + `lib/critique.ts`) — generated
-  objections typeset as true marginalia, aligned to the plate they refer to,
-  with a hairline leader. 16 tests on the critique rules.
-- **The tolerance rail** — the anti-template replacement for a row of big
-  numbers. Point estimate, confidence interval, and the threshold it must clear,
-  on one hairline scale.
-- **All eleven routes** from §13.4, each stage rendering the API's own error text
-  when its artifact is absent.
-- **`lib/api.ts`** over the generated OpenAPI types — no hand-written shapes.
-- **Bundle budget, Lighthouse and screenshot scripts**, all runnable from `just`.
-
-### Exit criteria
-
-| Criterion | Result |
-|---|---|
-| Golden-path Playwright test passes | ✅ 10 tests: index → run → verdict → every stage → fold filtering → error states |
-| Lighthouse ≥ 95 on performance / accessibility / best-practices | ✅ **96 / 100 / 100**, median of three |
-| Bundle budget met | ✅ **99 KB gzipped initial JS** against a 200 KB budget — 50% |
-| Keyboard-only walk through every route | ✅ asserted in the suite, including a visible focus ring |
-| Screenshots committed to `docs/` | ✅ `docs/screenshots/` — index, overview, leaderboard, backtest |
-
-### Deviations
-
-1. **`exactOptionalPropertyTypes` is off.** `strict` and
-   `noUncheckedIndexedAccess` are on, which is what §13.3 asks for. The extra
-   flag turns every nullable field in the *generated* OpenAPI types into an
-   error that says nothing about correctness, because OpenAPI expresses
-   nullability as both `?:` and `| null`.
-2. **A `--color-link` token was added beyond §13.2's palette.** In dark mode the
-   specified accent lift of +12% puts prussian at `#4f7cb0`, which measures
-   4.33:1 for 14px link text — under AA. §13.5's accessibility bar is not
-   negotiable, so link *text* uses a further-lifted blue while every structural
-   use keeps the specified value. The Fold Strip's colours are untouched.
-3. **The tolerance rail is a fourth device** in a brief that specifies three. It
-   earns its place by replacing something worse — the template stat row §13.4
-   would otherwise imply — and by being quiet enough not to compete with the
-   Fold Strip. Recorded in the design plan's self-critique as the first thing to
-   cut if it ever reads as clutter.
-4. **Only Latin font subsets are loaded.** The full packages ship Cyrillic,
-   Greek and Vietnamese `@font-face` blocks that this interface never enters,
-   and the stylesheet is render-blocking.
-
-### Bugs the screenshots caught
-
-**The Fold Strip was drawing every fold on one row.** Walk-forward windows
-overlap in time, so three folds painted over each other into a single band that
-said nothing at all — the signature element, communicating none of the thing it
-exists to communicate. It looked plausible in code and was obviously wrong the
-moment it was rendered. One lane per fold fixed it, and the sliding window is now
-the shape you see.
-
-**`autoCodeSplitting` duplicated a React context.** `RunContext` was created in
-the layout route file; the router's splitter put the child routes in a different
-chunk with a *second copy* of that module, so every child read the default value.
-The page rendered its header and its Fold Strip and then nothing — which looks
-exactly like a page still loading. Moving the context to `lib/run-context.tsx`
-fixed it. **A context created inside a code-split route file is a context that
-may not be the one you think it is.**
-
-### What surprised us
-
-- **Screenshots are not a formality.** Two of the three real defects in this
-  phase were invisible in the code, invisible to the type checker, and obvious
-  in a picture. The `frontend-design` skill's instruction to screenshot and
-  critique earned its place immediately.
-- **Font preloading moved Lighthouse performance from 93 to 96.** The
-  `@font-face` rules live in the bundled stylesheet, so the browser cannot
-  discover them until it has fetched and parsed that CSS — one round trip after
-  it needed to. Two `<link rel="preload">` tags recovered three points, more
-  than any JavaScript change would have.
-- **A single Lighthouse run is not evidence.** Scores swung 92–98 on the same
-  build depending on what else was compiling. `scripts/lighthouse.mjs` takes the
-  median of three, which is the smallest thing that is not luck.
-- **Accessibility caught a conflict inside the specification.** §13.2's dark
-  mode rule and §13.5's contrast bar cannot both hold for link text. The
-  interesting part is that the automated check found it — a human reviewer
-  reading both sections would very likely not have.
-
-### Deferred
-
-- `/runs/$id/features` shows the manifest and label summary but not the
-  clustered correlation matrix or IC-by-feature. Both need endpoints that do not
-  exist yet.
-- `/runs/$id/models` has the leaderboard but not ROC/PR, the confusion matrix or
-  the calibration diagram — all need per-prediction data the API paginates
-  rather than aggregates.
-- `/runs/$id/backtest` has the cost curve, rolling Sharpe and a virtualised
-  trade table, but no candlestick with trade markers: `lightweight-charts` is
-  installed and unused, because the OHLC series has no endpoint.
-- The monthly return heatmap, the SHAP beeswarm and the dependence plots. The
-  SHAP summary table is there; the beeswarm needs per-observation values.
-- `/config` as a standalone route. The resolved config and its diff against the
-  defaults are served by the API and shown in the run's own pages.
-
----
-
-## Phase 13 — Sequence models ✅
-
-**Completed:** 2026-07-28
-**`CURRENT_PHASE`:** `13`
-**Recipes in `verify`:** `fmt lint types test test-leak smoke e2e budget` —
-unchanged; the final form arrived in Phase 12.
-
-§15 marks this phase optional. It was built because the thing it adds is not
-"a neural network" but a second family that fails differently from the trees,
-and because the window is a leak surface the rest of the pipeline cannot see:
-purged folds guarantee nothing about a tensor stacked over them.
-
-### Built
-
-- **`models/windows.py`** — the whole leak surface, in torch-free numpy so its
-  tests run without the `dl` extra. `grid_positions` locates a fold's rows on
-  the complete bar index, `contiguous_runs` cuts them into maximal unbroken
-  runs, `build_windows` refuses to lay a window across a run boundary.
-  Training drops the incomplete windows at the head of each run (`pad=False`);
-  prediction repeats a run's first bar so every row still gets exactly one
-  score (`pad=True`).
-- **`models/sequence.py`** — `SequenceModel` behind the same `AlphaModel`
-  contract as everything else: the shared winsoriser and scaler fitted inside
-  `fit` (I3), an inner *tail* split for early stopping, `ReduceLROnPlateau`,
-  best-epoch restore, optional on-disk checkpoints, seeded batch order, and
-  §10.2 calibration fitted on the same held-out tail.
-- **`models/_nets.py`** — `RecurrentClassifier` (LSTM or GRU, stacked or
-  bidirectional) and `TemporalConvNet` (dilated causal convolutions, left
-  padding only). Deliberately small: tens of thousands of parameters.
-- **Five registry names** — `lstm`, `lstm_stacked`, `bilstm`, `gru`, `tcn` —
-  over three architectures, because depth and direction are settings, not
-  separate code paths for the window logic to be wrong in.
-- **`models/ensemble.py`** — `EnsembleModel` averages *calibrated
-  probabilities* (not logits, which would silently change what
-  `signal.thresholds` means), and `ensemble_gbm_lstm` blends LightGBM with the
-  LSTM. Torch-free, so it is tested without the extra.
-- **The bar-grid seam** — `fit_predict_oof` and `full_run`'s export refit hand
-  the full index to any model that windows. ADR 0011.
-
-### Exit criteria
-
-| Criterion | Result |
-|---|---|
-| `import alphacore` works with torch uninstalled | ✅ `tests/unit/test_import_isolation.py` probes a clean subprocess and asserts `torch` is not in `sys.modules`; `tests/unit/test_models_sequence.py` asserts building one without torch raises a `ModelError` naming `--extra dl` |
-| Sequence model appears on the leaderboard | ✅ `tests/integration/test_sequence_leaderboard.py` — `lstm` ranked against the five mandatory baselines through the ordinary OOF path, and `ensemble_gbm_lstm` beside its legs |
-| Window-purge test passes | ✅ `tests/leakage/test_window_purge.py`, with its control |
-
-53 tests across the four new files, plus 21 covering the registry fix below.
-Full suite: **1083 passed**, coverage 89.44%, mypy strict clean on 104 source
-files.
-
-### Deviations
-
-1. **`set_bar_grid` is a capability, not part of `AlphaModel`** (ADR 0011). A
-   sequence model raises from `fit` if it was never told the grid, rather than
-   assuming the frame it received is contiguous. The alternative — widening
-   `fit` for eleven models that have no use for it — buys type-checker
-   coverage at the price of a parameter ten implementations ignore.
-2. **CPU by default, accelerators on request** (ADR 0012). §10.3 says
-   "MPS/CUDA if available"; I8 says a run must be reproducible. Choosing a GPU
-   because one happens to be present would make the manifest's reproducibility
-   claim false. `auto` still does what the spec describes, and logs a warning
-   naming what it costs.
-3. **`build_model` accepts settings two ways and forwards them one way.** A
-   mapping from a config, keywords from an optuna trial, merged before the
-   builder sees them. Two accepted call shapes is one more than ideal; the
-   alternative was every caller converting, and the tuner's shape is decided by
-   optuna, not by us.
-4. **No search space is registered for the sequence models.** §10.4's tuner
-   would happily search one, but each trial trains a network on every fold, and
-   the trial count feeds the deflated-Sharpe haircut. A space added carelessly
-   here makes the haircut bigger and the runs slower for no stated benefit.
-5. **Sequence models report no feature importance.** Input gradients or
-   permutation importance are both defensible numbers, but they answer a
-   different question from the tree importances the leaderboard shows in the
-   same column, and putting them there would invite exactly the comparison they
-   do not support.
-
-### A bug found next door, then fixed
-
-`build_model(name, seed=..., **params)` forwarded tuned settings as flat keyword
-arguments, but the tree builders took a `params` mapping — so
-`build_model("lightgbm", seed=1, max_depth=4)` raised `TypeError`, and
-`tune_model`'s objective catches only `(ModelError, PipelineError)`. Tuning any
-GBM killed the whole study. `tests/integration/test_tuning.py` only tuned
-`logistic`, whose builder did take flat kwargs, which is why this had been green
-since Phase 10.
-
-Fixed in the same phase, with its own red-green cycle. Every builder now takes
-one shape — a `params` mapping — and `resolve_params` in `models/base.py`
-rejects a key the model does not have with a `ModelError`, so an invalid setting
-is a rejected trial rather than a `TypeError` or, worse, a silently ignored
-parameter. `build_model` accepts both call shapes and merges them, because a
-config passes a mapping and optuna hands back keywords.
-
-Two things surfaced only once the parameters could actually arrive:
-
-- **CatBoost's search space named `depth` and `iterations`** — its own dialect,
-  which the adapter never reads. Even with the `TypeError` gone, every CatBoost
-  trial would have trained the default model and reported a best configuration
-  it never used. The spaces now speak the registry's vocabulary and the adapter
-  translates.
-- **LightGBM ignored `num_leaves` and `min_child_samples`**, two of the four
-  parameters its space searches, because the adapter derived `num_leaves` from
-  `max_depth` and never looked at the rest. `test_every_search_space_parameter_is_accepted_by_its_model`
-  now fails if the two vocabularies drift again.
-
-`subsample` is rejected by CatBoost rather than accepted and ignored, on the
-same reasoning.
-
-### What surprised us
-
-- **"Consecutive" is not a fact about timestamps.** The first windowing design
-  compared elapsed time between bars. It is wrong in a way that looks right:
-  Friday to Monday is three days and zero bars, a holiday is four, and a purge
-  gap is a hundred — but the boundary between "weekend" and "gap" is a
-  threshold, and a leakage check that depends on a tuned threshold is not a
-  check. Positions on the full bar index are exact and need no constant.
-- **The control was worth more than the test.** `test_window_purge` passed the
-  moment it was written, because the implementation it tests was already
-  correct. What proved the assertion had teeth was `_naive_windows`, the
-  obvious implementation, failing it — and later, flipping `pad=False` to
-  `pad=True` inside `fit` and watching the training-window count test go red.
-  A canary that has never seen the bug it guards against is decoration.
-- **Early stopping made the defaults fast enough to leave alone.** A 32-bar,
-  32-unit LSTM with a 40-epoch budget scores a 700-row leaderboard in about two
-  seconds, because it stops after six or seven. The plan had been to add a
-  per-model `params` block to the config schema so the tests could shrink it;
-  the tests did not need it, and §5 kept its shape.
-- **A `TypeError` was hiding two silent wrongs.** Fixing the crash was the small
-  part. The parameters had never arrived, so nobody had ever checked that the
-  names the tuner searches are names the models read — and two of the three GBM
-  spaces were partly fiction. A crash is a good bug: it is the silent version of
-  the same defect that costs you a quarter of results.
-- **Bidirectional is only frightening until the window is right.** The usual
-  warning — "bidirectional RNNs leak the future" — is a statement about
-  *centred* windows. Over a trailing window the backward pass reads recent bars
-  in reverse and nothing later exists to read, which the poison test asserts
-  directly.
-
-### Deferred
-
-- **Multi-symbol windows.** The backtester is single-symbol (§8 gap list), so
-  the window builder cuts runs within one series. Cross-sectional tensors would
-  need a symbol axis and a per-symbol grid.
-- **Attention and transformer variants.** §10.3 does not ask for them, and on
-  two thousand bars they would be a parameter count in search of a dataset.
-- **Sequence models in the smoke config.** `smoke.yaml` stays GBM-and-baselines
-  so `just verify` does not depend on the `dl` extra being installed.

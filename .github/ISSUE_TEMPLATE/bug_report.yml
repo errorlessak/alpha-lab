@@ -1,0 +1,84 @@
+name: Bug report
+description: Something produced the wrong answer, or no answer.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. The three fields marked required are the ones
+        that usually decide whether a bug can be reproduced at all.
+
+        **A suspected leak or a wrong number is the highest-value report this
+        project can receive.** If a run found an edge you do not believe, say
+        so — that is exactly what the leakage suite exists to catch, and a case
+        it misses is worth more than a crash.
+
+        Security issues do not belong here. See
+        [SECURITY.md](https://github.com/errorlessak/alpha-lab/blob/main/SECURITY.md).
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you expected, what you got, and the difference that matters.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: >
+        The exact command, and the config if it is not one of the committed
+        ones. `runs/{run_id}/config.resolved.yaml` is the fully resolved copy
+        and is the most useful thing to paste.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: run_id
+    attributes:
+      label: Run id
+      description: >
+        If a run directory exists. `runs/{run_id}/manifest.json` carries the
+        config hash, data hash, code revision and seed.
+      placeholder: 2026-08-07T09-14-22Z_smoke_a3f91c
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`uv run alpha doctor` output"
+      description: >
+        Reports the interpreter, whether PYTHONHASHSEED is pinned, and the
+        version of every package that can change a result. Most
+        "it works on my machine" reports are answered by this table.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where
+      multiple: true
+      options:
+        - data ingestion / lake / catalog
+        - features / labels
+        - cross-validation
+        - models / leaderboard
+        - backtest / costs
+        - metrics / tearsheet
+        - CLI
+        - API service
+        - web app
+        - packaging / Docker / CI
+        - documentation
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >
+        The traceback, or the relevant lines from `runs/{run_id}/logs.jsonl`.
+      render: text

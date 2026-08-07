@@ -185,7 +185,7 @@ function TradeTable({ rows }: { rows: Array<Record<string, unknown>> }) {
                 <span className="text-right">{fmtNum(Number(row['exit_price'] ?? 0), 2)}</span>
                 <span
                   className="text-right"
-                  style={{ color: pnl < 0 ? 'var(--color-oxblood)' : 'var(--color-sage)' }}
+                  style={{ color: pnl < 0 ? 'var(--color-danger-text)' : 'var(--color-sage)' }}
                 >
                   {fmtNum(pnl, 2)}
                 </span>

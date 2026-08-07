@@ -3,6 +3,10 @@ name = "alphaservice"
 version = "0.1.0"
 description = "FastAPI service and Typer CLI over the immutable alphacore artifact store."
 requires-python = ">=3.12,<3.13"
+# See the note in `packages/alphacore/pyproject.toml`: the licence file is
+# above this package's build root, so it is declared as an SPDX expression.
+license = "MIT"
+authors = [{ name = "Akshy Karthick" }]
 dependencies = [
     "alphacore",
     "fastapi>=0.115",

@@ -293,6 +293,34 @@ class ArtifactStore:
             root = os.environ.get(_RUNS_DIR_ENV_VAR) or DEFAULT_RUNS_DIR
         self.root = Path(root).resolve()
 
+    def _run_path(self, run_id: str) -> Path | None:
+        """Resolve a run id to a path, or None if it is not a run id at all.
+
+        A run id names one directory directly inside the store. Anything else —
+        `..`, a nested path, an absolute path — is rejected here rather than at
+        each call site, because the callers are a CLI, an API route and a
+        pipeline, and only one of them is obviously untrusted.
+
+        `RunDirectory.artifact_path` already refuses to escape a run directory.
+        That is worth nothing if the run directory itself can be the store's
+        parent, which is exactly what `GET /api/v1/runs/%2E%2E/export/README.md`
+        did before this existed: the segment decodes to `..` after routing has
+        already matched it as one path component.
+
+        Args:
+            run_id: The candidate id.
+
+        Returns:
+            The absolute path, or None if `run_id` does not name a direct child
+            of the store.
+        """
+        if not run_id or run_id in {".", ".."} or "/" in run_id or "\\" in run_id:
+            return None
+        candidate = (self.root / run_id).resolve()
+        if candidate.parent != self.root:
+            return None
+        return candidate
+
     def __repr__(self) -> str:
         """Return a debug representation naming the store root."""
         return f"ArtifactStore({self.root.as_posix()!r})"
@@ -307,9 +335,16 @@ class ArtifactStore:
             A writable handle.
 
         Raises:
-            ArtifactExistsError: If a directory with this id already exists.
+            ArtifactExistsError: If a directory with this id already exists, or
+                if the id does not name a direct child of the store.
         """
-        path = self.root / run_id
+        path = self._run_path(run_id)
+        if path is None:
+            msg = (
+                f"Run id {run_id!r} is not a single directory name inside "
+                f"{self.root}. Run ids come from `manifest.new_run_id`."
+            )
+            raise ArtifactExistsError(msg)
         if path.exists():
             msg = f"Run {run_id!r} already exists at {path}. Run ids are never reused (§4, I9)."
             raise ArtifactExistsError(msg)
@@ -326,10 +361,11 @@ class ArtifactStore:
             A read-only handle.
 
         Raises:
-            RunNotFoundError: If no such run directory exists.
+            RunNotFoundError: If no such run directory exists, or if the id
+                does not name a direct child of the store.
         """
-        path = self.root / run_id
-        if not path.is_dir():
+        path = self._run_path(run_id)
+        if path is None or not path.is_dir():
             msg = f"No run {run_id!r} in {self.root}."
             raise RunNotFoundError(msg)
         return RunDirectory(path, writable=False)

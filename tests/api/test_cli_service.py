@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
+from unittest.mock import patch
 
 from typer.testing import CliRunner
 
+from alphaservice.api.settings import WEB_DIST_ENV_VAR
 from alphaservice.cli import app
 
 runner = CliRunner()
@@ -40,3 +43,27 @@ def test_openapi_prints_when_no_output_is_given():
     result = runner.invoke(app, ["openapi"])
     assert result.exit_code == 0
     assert "paths" in result.stdout
+
+
+def test_serve_rejects_a_web_dist_that_is_not_there():
+    result = runner.invoke(app, ["serve", "--web-dist", "no/such/bundle"])
+    assert result.exit_code != 0
+    assert "no/such/bundle" in result.output.replace("\\", "/")
+
+
+def test_serve_passes_the_bundle_through_the_environment(tmp_path, monkeypatch):
+    # Through the environment rather than an argument, because `--reload`
+    # re-imports the application in a process the CLI cannot reach.
+    # `setenv` rather than `delenv`: monkeypatch then owns the variable and
+    # restores it on teardown, so the value the command sets cannot leak into
+    # another test's application.
+    monkeypatch.setenv(WEB_DIST_ENV_VAR, "")
+    dist = tmp_path / "dist"
+    dist.mkdir()
+
+    with patch("uvicorn.run") as run:
+        result = runner.invoke(app, ["serve", "--web-dist", str(dist)])
+
+    assert result.exit_code == 0, result.output
+    assert run.called
+    assert os.environ[WEB_DIST_ENV_VAR] == str(dist)

@@ -32,7 +32,10 @@ function entryChunks() {
     const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8'))
     const entry = Object.values(manifest).find((chunk) => chunk.isEntry)
     if (entry) {
-      const names = new Set([entry.file, ...(entry.imports ?? []).map((key) => manifest[key]?.file)])
+      const names = new Set([
+        entry.file,
+        ...(entry.imports ?? []).map((key) => manifest[key]?.file),
+      ])
       return [...names].filter(Boolean)
     }
   } catch {

@@ -969,6 +969,15 @@ def serve(
     host: Annotated[str, typer.Option("--host", help="Interface to bind.")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", help="Port to bind.")] = 8000,
     reload: Annotated[bool, typer.Option("--reload", help="Restart on source changes.")] = False,
+    web_dist: Annotated[
+        Path | None,
+        typer.Option(
+            "--web-dist",
+            help="Serve a built web bundle from this origin, e.g. `web/dist`.",
+            exists=True,
+            file_okay=False,
+        ),
+    ] = None,
 ) -> None:
     """Run the API service.
 
@@ -980,8 +989,19 @@ def serve(
         host: Interface to bind.
         port: Port to bind.
         reload: Restart on source changes.
+        web_dist: A built web bundle to serve alongside the API, so both answer
+            on one origin. Development normally leaves this unset and lets Vite
+            proxy `/api` instead.
     """
     import uvicorn  # noqa: PLC0415
+
+    from alphaservice.api.settings import WEB_DIST_ENV_VAR  # noqa: PLC0415
+
+    if web_dist is not None:
+        # Through the environment rather than through `Settings`, because
+        # `--reload` re-imports the application in a process this one cannot
+        # otherwise reach.
+        os.environ[WEB_DIST_ENV_VAR] = str(web_dist)
 
     if host not in {"127.0.0.1", "localhost", "::1"}:
         console.print(

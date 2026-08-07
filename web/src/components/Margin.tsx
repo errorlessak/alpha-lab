@@ -30,9 +30,18 @@ const SEVERITY_LABEL: Record<CritiqueSeverity, string> = {
   note: 'note',
 }
 
+/** The leader hairline: a graphic, measured against the 3:1 bar. */
 const SEVERITY_COLOUR: Record<CritiqueSeverity, string> = {
   blocking: 'var(--color-oxblood)',
   caution: 'var(--color-sulphur)',
+  note: 'var(--color-ink-muted)',
+}
+
+/** The label above the note: 12px text, measured against the 4.5:1 bar. See
+ *  the text-only variants in `styles/tokens.css`. */
+const SEVERITY_TEXT_COLOUR: Record<CritiqueSeverity, string> = {
+  blocking: 'var(--color-danger-text)',
+  caution: 'var(--color-caution-text)',
   note: 'var(--color-ink-muted)',
 }
 
@@ -106,7 +115,7 @@ function NoteBody({ note }: { note: MarginNote }) {
     <>
       <p
         className="tabular text-2xs uppercase tracking-wide"
-        style={{ color: SEVERITY_COLOUR[note.severity] }}
+        style={{ color: SEVERITY_TEXT_COLOUR[note.severity] }}
       >
         {SEVERITY_LABEL[note.severity]}
       </p>
