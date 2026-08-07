@@ -173,6 +173,20 @@ ignore_missing_imports = true
 module = ["alphacore.models.base"]
 disallow_subclassing_any = false
 
+# The same problem, arrived at from the other direction. torch *does* ship
+# `py.typed`, so on a machine with the `dl` extra `nn.Module` is a real type and
+# this override is unused. On a clone without it — which is the default, and
+# what CI's main job installs — `torch.*` resolves to `Any` through the
+# `ignore_missing_imports` block above, and every `nn.Module` subclass becomes
+# "Class cannot subclass 'Module' (has type 'Any')".
+#
+# Subclassing `nn.Module` is the only way to define a network, so the rule has
+# to yield here rather than the code. It is scoped to the one module that holds
+# the networks: `sequence.py` wraps them and is still checked in full.
+[[tool.mypy.overrides]]
+module = ["alphacore.models._nets"]
+disallow_subclassing_any = false
+
 # --------------------------------------------------------------------------
 # pytest
 # --------------------------------------------------------------------------

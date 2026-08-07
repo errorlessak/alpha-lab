@@ -286,12 +286,24 @@ Break these and the project stops meaning anything.
   shell fails. `ALPHA__JOBS_DB` did exactly that.
   `tests/unit/test_config.py` now derives the list from
   `alphaservice.api.settings` so the two packages cannot drift.
-- **Every optional extra needs an entry in the mypy override list**
-  (`pyproject.toml`). `import alphacore` must work without them, so a clone with
-  no `dl` extra has no torch to resolve at all, and mypy calls a missing import
-  an error rather than an unknown type. `torch` and `optuna` were missing, which
-  is why `just types` was green on every machine with the extras and red in CI.
-  The "unused section" notes on a machine that *has* them are the price.
+- **`just types` checks a different codebase depending on which extras you
+  installed**, and the default install — the one CI's main job uses — is the one
+  with fewer of them. Two separate things follow, and both bit:
+  1. Every optional extra needs an entry in the mypy `ignore_missing_imports`
+     list. Without it, a clone lacking the extra cannot resolve the import at
+     all, and mypy calls that an error rather than an unknown type. `torch` and
+     `optuna` were missing.
+  2. Silencing the import turns the package into `Any`, and `strict` then
+     refuses to let anything subclass it. `alphacore.models._nets` subclasses
+     `nn.Module` three times, so it needs `disallow_subclassing_any = false` —
+     the same concession `alphacore.models.base` already makes for scikit-learn.
+     With torch installed the override is unused and mypy says so.
+
+  **If you touch anything near torch, check mypy without the `dl` extra.**
+  `uv sync --all-packages --extra gbm --extra tune` reproduces CI exactly; put
+  `--extra dl` back afterwards. There is deliberately no recipe for this,
+  because a recipe that uninstalls torch from under a developer is worse than
+  the thing it guards.
 - **`node_modules` hides a broken lockfile.** `package.json` and
   `package-lock.json` disagreed about eslint for some time and nothing local
   noticed, because `npm ci` is only run by `just setup` and CI. If you change a
@@ -411,10 +423,13 @@ Phase 14 is built: `Dockerfile`, `docker-compose.yml`, `.dockerignore`,
 export step to go stale), and the repository furniture. `just serve-bundled`
 runs the single-origin arrangement the container uses, without Docker.
 
-**The image has never been built.** Docker is not installed on the development
-machine. The compose file parses, the entrypoint's seeding logic was exercised
-under `sh`, and the `docker` CI job asserts the §15 exit criterion — but until
-that job runs, the Dockerfile is unverified. Treat the first CI run as the test.
+**The image is verified in CI, not here.** Docker is not installed on the
+development machine, so nothing about the image can be checked locally. The
+`docker` job builds it, runs `docker compose up --wait`, and asserts the §15
+exit criterion — health, a seeded run in the store, the shell at `/`, and a deep
+link resolving to it. It went green on the first run that could get past
+`npm ci`. If you change the Dockerfile, that job is the only thing that will
+tell you whether you broke it.
 
 - **Lighthouse performance depends on how many runs are in the store.** 95 with
   one run, low 70s with twenty: the index grows after its fetch lands, and the

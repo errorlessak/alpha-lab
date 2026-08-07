@@ -13,7 +13,9 @@ the §16 run directory layout) may change in a minor release.
 - **Packaging (§15 Phase 14).** A multi-stage `Dockerfile`, a
   `docker-compose.yml` that serves the whole application on
   `127.0.0.1:8000`, and a `.dockerignore`. The first container start produces a
-  run from the committed fixture, so the index is not empty.
+  run from the committed fixture, so the index is not empty. CI builds the image
+  and asserts §15's exit criterion against it: health, a seeded run in the
+  store, the shell at `/`, and a deep link resolving to it.
 - **The API can serve the built web bundle from its own origin.** Set
   `ALPHA__WEB_DIST`, or run `alpha serve --web-dist web/dist` / `just
   serve-bundled`. Hashed assets are immutable, `index.html` revalidates, and
@@ -45,11 +47,15 @@ the §16 run directory layout) may change in a minor release.
   `node_modules`, and fatal on every machine that did not. Pinned to `^9.39.0`,
   which is the tree that has been passing lint all along; upgrading to eslint 10
   needs the plugin ecosystem and is a change of its own.
-- **`just types` passed locally and failed in CI** because `torch` was missing
-  from the mypy override list. Every optional extra has to be there: `import
-  alphacore` must work without them, so a clone with no `dl` extra has no torch
-  to resolve at all, and mypy reports a missing import as an error. `optuna` was
-  missing for the same reason.
+- **`just types` passed locally and failed in CI**, in two stages. `torch` and
+  `optuna` were missing from the mypy `ignore_missing_imports` list, so a clone
+  without those extras could not resolve the import at all — and mypy reports a
+  missing import as an error, not as an unknown type. Silencing it then turns
+  torch into `Any`, and `strict` refuses to let `alphacore.models._nets`
+  subclass `nn.Module`, so that module needs the same
+  `disallow_subclassing_any` concession `alphacore.models.base` already makes
+  for scikit-learn. Both were invisible on any machine that had run
+  `just setup-dl`.
 - Cleared a high-severity advisory in a transitive dev dependency
   (`brace-expansion`). `npm audit` reports zero.
 - **A typo in `models.candidates` produced a leaderboard instead of an error.**

@@ -973,7 +973,7 @@ budget. Lighthouse 95 / 100 / 100 (median of three, one-run store).
 
 | Criterion | Evidence |
 |---|---|
-| Multi-stage Dockerfile and compose | Built; **not yet run — Docker is not installed on the development machine.** The `docker` CI job is the first real test. |
+| Multi-stage Dockerfile and compose | **Green in CI.** Built and run there — `docker compose up --wait`, then health, a seeded run in the store, the shell at `/`, and a deep link resolving to it. Never built on the development machine, which has no Docker. |
 | CI covering lint, types, tests, coverage, web, Playwright, docker | Six jobs in `.github/workflows/ci.yml` |
 | README with screenshots and a quickstart | Rewritten; screenshots regenerated after the palette change |
 | `docs/methodology.md` | Written |
@@ -982,8 +982,9 @@ budget. Lighthouse 95 / 100 / 100 (median of three, one-run store).
 
 ### Deferred, and why
 
-- **The Docker build is unverified locally.** Stated plainly rather than
-  implied: no Docker on this machine.
+- **The Docker build is unverified *locally*.** No Docker on this machine, so
+  the `docker` CI job is the only thing that exercises the image. It is green;
+  the point stands that nothing here can tell you before you push.
 - **Lighthouse performance depends on the number of runs in the store.** 95 with
   one, low 70s with twenty. Fixing it means paginating or virtualising the
   index, which is a change to how the page works rather than to how it is
@@ -1059,6 +1060,19 @@ about what the harness was measuring.
   and `tune` and not `dl`, so mypy could not resolve `import torch` and called
   it an error. The rule was already written down for lightgbm and the list had
   simply not been kept — `optuna` was missing too.
+
+  **That fix uncovered a second one underneath it.** Adding `torch.*` to
+  `ignore_missing_imports` makes torch resolve to `Any`, and `strict` will not
+  let anything subclass `Any` — so `_nets.py`, which defines three `nn.Module`
+  subclasses because that is the only way to define a network, went from three
+  missing-import errors to three subclassing errors. The concession
+  `alphacore.models.base` already makes for scikit-learn, scoped to the one
+  module that holds the networks.
+
+  The second one was found by reproducing CI's environment rather than by
+  reading the log — `uv sync --all-packages --extra gbm --extra tune`, run
+  mypy, put `--extra dl` back. Guessing from a job name would have shipped the
+  first fix and gone red again.
 
   **This is the argument for the CI job existing at all.** Both defects were in
   the repository before this work started, both were invisible to every local
