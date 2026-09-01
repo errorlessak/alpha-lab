@@ -33,7 +33,7 @@ RUN npm run build
 # --------------------------------------------------------------------------
 # 2. The Python environment.
 # --------------------------------------------------------------------------
-FROM python:3.12-slim-bookworm AS python-build
+FROM python:3.14-slim-bookworm AS python-build
 
 # Pinned rather than `:latest`: the resolver is part of what makes `uv.lock`
 # reproducible, and an image that silently changes resolver is an image whose
@@ -64,7 +64,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # --------------------------------------------------------------------------
 # 3. The runtime.
 # --------------------------------------------------------------------------
-FROM python:3.12-slim-bookworm AS runtime
+FROM python:3.14-slim-bookworm AS runtime
 
 # libgomp is LightGBM's and XGBoost's OpenMP runtime. Without it the import
 # fails at first use, which is after a run has already started.
